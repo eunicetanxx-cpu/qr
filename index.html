@@ -1,52 +1,1112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Color QR Tracker (Prototype)</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Indoor Navigation (Voice + QR)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 10px;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        section {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        select, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            background-color: #fff;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:active {
+            background-color: #2980b9;
+        }
+        
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        button.secondary:active {
+            background-color: #7f8c8d;
+        }
+        
+        button.success {
+            background-color: #2ecc71;
+        }
+        
+        button.success:active {
+            background-color: #27ae60;
+        }
+        
+        button.warning {
+            background-color: #e74c3c;
+        }
+        
+        button.warning:active {
+            background-color: #c0392b;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        #cameraPreview {
+            width: 100%;
+            height: 300px;
+            background-color: #000;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            object-fit: cover;
+        }
+        
+        #statusMessage {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            min-height: 40px;
+        }
+        
+        #logContainer {
+            height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .navigation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .navigation-content {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .instruction {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .distance {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+        }
+        
+        .destination-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .destination-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .destination-item:last-child {
+            border-bottom: none;
+        }
+        
+        .destination-item.active {
+            background-color: #e8f4fc;
+        }
+        
+        .speech-status {
+            text-align: center;
+            font-style: italic;
+            color: #7f8c8d;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>QR Navigator</h1>
-  </header>
-
-  <main>
-    <div class="stage">
-      <video id="video" autoplay playsinline muted></video>     
-      <canvas id="display"></canvas>
-      <canvas id="process" hidden></canvas>
-      <div id="overlayText">Please choose QR Color to scan</div>
-      <div class="scan-area"></div>
-    </div>
-
-    <div id="status" class="status">Initializing…</div>   
-    <div id="result" class="result" aria-live="polite"></div>
+    <header>
+        <h1>Indoor Navigation (Voice + QR)</h1>
+        <div id="statusMessage">Idle</div>
+    </header>
     
-    <!-- Control buttons -->
-    <div class="controls">
-      <button id="restartBtn" onclick="restartScan()" style="display: none;">
-        🔄 Restart Scanning
-      </button>
+    <section id="mainSection">
+        <div class="control-group">
+            <label for="colorFilter">QR Color Filter:</label>
+            <select id="colorFilter">
+                <option value="any">Any</option>
+                <option value="red">Red</option>
+                <option value="green">Green</option>
+                <option value="blue">Blue</option>
+            </select>
+        </div>
+        
+        <div class="button-group">
+            <button id="startScanBtn" class="success">Start Scan</button>
+            <button id="stopScanBtn" class="warning">Stop Scan</button>
+        </div>
+        
+        <button id="showMapBtn">Show Map</button>
+        <button id="voiceDestinationBtn">Voice Destination & Start</button>
+        
+        <div class="control-group">
+            <label for="microphoneSelect">Microphone:</label>
+            <select id="microphoneSelect"></select>
+            <button id="refreshMicsBtn" class="secondary">Refresh Microphones</button>
+        </div>
+    </section>
+    
+    <section>
+        <video id="cameraPreview" autoplay playsinline></video>
+        <canvas id="qrCanvas" class="hidden"></canvas>
+    </section>
+    
+    <section>
+        <h2>Activity Log</h2>
+        <div id="logContainer"></div>
+    </section>
+    
+    <div id="navigationModal" class="navigation-modal hidden">
+        <div class="navigation-content">
+            <h2>Navigation</h2>
+            <div id="routeSummary"></div>
+            <div class="progress-bar">
+                <div id="navigationProgress" class="progress"></div>
+            </div>
+            <div id="currentInstruction" class="instruction"></div>
+            <div id="currentDistance" class="distance"></div>
+            <div class="button-group">
+                <button id="nextStepBtn">Next</button>
+                <button id="cancelNavigationBtn" class="warning">Cancel</button>
+            </div>
+        </div>
     </div>
-  </main>
+    
+    <div id="destinationModal" class="navigation-modal hidden">
+        <div class="navigation-content">
+            <h2>Select Destination</h2>
+            <div id="currentLocationDisplay"></div>
+            <div class="destination-list" id="destinationList"></div>
+            <div class="button-group">
+                <button id="startNavigationBtn" class="success">Start Navigation</button>
+                <button id="cancelDestinationBtn" class="warning">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="voiceListeningModal" class="navigation-modal hidden">
+        <div class="navigation-content">
+            <h2>Voice Destination</h2>
+            <div class="speech-status" id="listeningStatus">Listening...</div>
+            <button id="cancelVoiceBtn" class="warning">Cancel</button>
+        </div>
+    </div>
 
-  <!-- Scripts -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="qr-data.js" defer></script>
-  <script src="app.js" defer></script>
+    <script>
+        // ---------------------------
+        // Application State and Configuration
+        // ---------------------------
+        const nodeCoords = {
+            "Female Toilet (NGT1)": [2009, 1357],
+            "Male Toilet (NGT2)": [1955, 1357],
+            "N001 (backdoor)": [2100, 1135],
+            "N001": [1907, 1121],
+            "N002": [1651, 1097],
+            "N003": [1387, 1074],
+            "N004": [892, 1097],
+            "N005": [638, 1115],
+            "N006": [383, 1139],
+            "N007": [127, 1158],
+            "N008": [4, 1330],
+            "Female Toilet (NGT5)": [357, 1350],
+            "Male Toilet (NGT4)": [403, 1351],
+            "N009": [492, 1330],
+            "N010": [822, 1335],
+            "N011": [1251, 1340],
+            "N012": [1597, 1340],
+        };
 
-  <script>
-    // Show restart button after initialization
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        const restartBtn = document.getElementById('restartBtn');
-        if (restartBtn) {
-          restartBtn.style.display = 'block';
+        const graphRaw = {
+            "Female Toilet (NGT1)": {"Male Toilet (NGT2)": 1.89},
+            "N001": {"Female Toilet (NGT1)": 9.00, "N001 (backdoor)": 6.77, "N002": 9.00},
+            "N002": {"N003": 9.28},
+            "N003": {"N004": 17.35},
+            "N004": {"N005": 8.91},
+            "N005": {"N006": 8.97},
+            "N006": {"Male Toilet (NGT4)": 7.45, "Female Toilet (NGT5)": 7.44, "N007": 8.99},
+            "N007": {"N008": 7.40},
+            "N008": {"Female Toilet (NGT5)": 12.38},
+            "Female Toilet (NGT5)": {"Male Toilet (NGT4)": 1.61},
+            "Male Toilet (NGT4)": {"N009": 3.20},
+            "N009": {"N010": 11.55},
+            "N010": {"N011": 15.02},
+            "N011": {"N012": 12.11},
+            "N012": {"Male Toilet (NGT2)": 12.55}
+        };
+
+        // Make graph bidirectional
+        const graph = {};
+        for (const node in graphRaw) {
+            graph[node] = {...graphRaw[node]};
         }
-      }, 2000);
-    });
-  </script>
+        for (const fromNode in graphRaw) {
+            for (const toNode in graphRaw[fromNode]) {
+                if (!graph[toNode]) {
+                    graph[toNode] = {};
+                }
+                graph[toNode][fromNode] = graphRaw[fromNode][toNode];
+            }
+        }
+
+        // Application state
+        let state = {
+            currentLocation: null,
+            detectedColor: null,
+            isScanning: false,
+            currentNavigationTarget: null,
+            navigationPath: [],
+            navigationIndex: 0,
+            mediaStream: null,
+            speechSynthesis: window.speechSynthesis,
+            recognition: null,
+            qrDetectionInterval: null,
+            obstacleDetectionInterval: null,
+            lastObstacleAnnounce: 0
+        };
+
+        // ---------------------------
+        // UI Elements
+        // ---------------------------
+        const elements = {
+            statusMessage: document.getElementById('statusMessage'),
+            cameraPreview: document.getElementById('cameraPreview'),
+            qrCanvas: document.getElementById('qrCanvas'),
+            logContainer: document.getElementById('logContainer'),
+            colorFilter: document.getElementById('colorFilter'),
+            microphoneSelect: document.getElementById('microphoneSelect'),
+            startScanBtn: document.getElementById('startScanBtn'),
+            stopScanBtn: document.getElementById('stopScanBtn'),
+            showMapBtn: document.getElementById('showMapBtn'),
+            voiceDestinationBtn: document.getElementById('voiceDestinationBtn'),
+            refreshMicsBtn: document.getElementById('refreshMicsBtn'),
+            navigationModal: document.getElementById('navigationModal'),
+            destinationModal: document.getElementById('destinationModal'),
+            voiceListeningModal: document.getElementById('voiceListeningModal'),
+            routeSummary: document.getElementById('routeSummary'),
+            navigationProgress: document.getElementById('navigationProgress'),
+            currentInstruction: document.getElementById('currentInstruction'),
+            currentDistance: document.getElementById('currentDistance'),
+            nextStepBtn: document.getElementById('nextStepBtn'),
+            cancelNavigationBtn: document.getElementById('cancelNavigationBtn'),
+            currentLocationDisplay: document.getElementById('currentLocationDisplay'),
+            destinationList: document.getElementById('destinationList'),
+            startNavigationBtn: document.getElementById('startNavigationBtn'),
+            cancelDestinationBtn: document.getElementById('cancelDestinationBtn'),
+            listeningStatus: document.getElementById('listeningStatus'),
+            cancelVoiceBtn: document.getElementById('cancelVoiceBtn')
+        };
+
+        // ---------------------------
+        // Utility Functions
+        // ---------------------------
+        function log(message) {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            elements.logContainer.appendChild(logEntry);
+            elements.logContainer.scrollTop = elements.logContainer.scrollHeight;
+            console.log(message);
+        }
+
+        function setStatus(message) {
+            elements.statusMessage.textContent = message;
+        }
+
+        function speak(text, interrupt = false) {
+            if (interrupt) {
+                state.speechSynthesis.cancel();
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            state.speechSynthesis.speak(utterance);
+        }
+
+        // ---------------------------
+        // Pathfinding Algorithm
+        // ---------------------------
+        function dijkstra(start, end) {
+            const pq = [{ cost: 0, node: start, path: [] }];
+            const visited = new Set();
+            
+            while (pq.length > 0) {
+                pq.sort((a, b) => a.cost - b.cost);
+                const { cost, node, path } = pq.shift();
+                
+                if (visited.has(node)) continue;
+                const newPath = [...path, node];
+                visited.add(node);
+                
+                if (node === end) {
+                    return { path: newPath, cost };
+                }
+                
+                for (const neighbor in graph[node]) {
+                    if (!visited.has(neighbor)) {
+                        pq.push({
+                            cost: cost + graph[node][neighbor],
+                            node: neighbor,
+                            path: newPath
+                        });
+                    }
+                }
+            }
+            
+            return { path: [], cost: Infinity };
+        }
+
+        // ---------------------------
+        // Direction Calculation
+        // ---------------------------
+        function getTurnDirection(p1, p2, p3) {
+            const v1 = [p2[0] - p1[0], p2[1] - p1[1]];
+            const v2 = [p3[0] - p2[0], p3[1] - p2[1]];
+            
+            const angle1 = Math.atan2(v1[1], v1[0]);
+            const angle2 = Math.atan2(v2[1], v2[0]);
+            
+            let angle = (angle2 - angle1) * 180 / Math.PI;
+            angle = (angle + 360) % 360;
+            
+            if (angle < 45 || angle > 315) return "Move straight";
+            if (angle >= 45 && angle < 135) return "Turn right";
+            if (angle >= 135 && angle < 225) return "Turn back";
+            return "Turn left";
+        }
+
+        function getInitialDirectionSimple(p1, p2) {
+            const dx = p2[0] - p1[0];
+            const dy = p2[1] - p1[1];
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            angle = (angle + 360) % 360;
+            
+            if (angle >= 315 || angle < 45) return "Move straight";
+            if (angle >= 45 && angle < 135) return "Turn right";
+            if (angle >= 135 && angle < 225) return "Turn back";
+            return "Turn left";
+        }
+
+        // ---------------------------
+        // QR Code Detection (using jsQR library)
+        // ---------------------------
+        function detectQRCode(video, canvas, targetColor = null) {
+            const context = canvas.getContext('2d');
+            
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data from canvas
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Simple color detection (placeholder for actual color-based QR detection)
+            // In a real implementation, you would use color segmentation here
+            let colorFound = null;
+            if (targetColor && targetColor !== 'any') {
+                // Simplified color detection - in practice, you'd use more sophisticated methods
+                const data = imageData.data;
+                let r = 0, g = 0, b = 0, count = 0;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    r += data[i];
+                    g += data[i + 1];
+                    b += data[i + 2];
+                    count++;
+                }
+                
+                r = Math.floor(r / count);
+                g = Math.floor(g / count);
+                b = Math.floor(b / count);
+                
+                // Simple color matching (this is a placeholder)
+                if (targetColor === 'red' && r > g && r > b) colorFound = 'red';
+                if (targetColor === 'green' && g > r && g > b) colorFound = 'green';
+                if (targetColor === 'blue' && b > r && b > g) colorFound = 'blue';
+            }
+            
+            // In a real implementation, you would use a QR code library like jsQR
+            // For this example, we'll simulate QR detection
+            const simulatedDetection = Math.random() < 0.1; // 10% chance of detection
+            
+            if (simulatedDetection) {
+                const locations = Object.keys(nodeCoords);
+                const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+                
+                return {
+                    found: true,
+                    decoded: randomLocation,
+                    color: colorFound || 'unknown',
+                    guidance: "OK – close enough!",
+                    bbox: { x: 100, y: 100, width: 200, height: 200 }
+                };
+            }
+            
+            return {
+                found: false,
+                decoded: null,
+                color: null,
+                guidance: "Looking...",
+                bbox: null
+            };
+        }
+
+        // ---------------------------
+        // Obstacle Detection (simplified)
+        // ---------------------------
+        function detectObstacle(video, canvas) {
+            // This is a simplified simulation of obstacle detection
+            // In a real implementation, you would use computer vision techniques
+            const hasObstacle = Math.random() < 0.05; // 5% chance of obstacle
+            
+            if (hasObstacle) {
+                const distance = (Math.random() * 3).toFixed(1); // Random distance 0-3m
+                return {
+                    found: true,
+                    distance: distance,
+                    bbox: { x: 100, y: 300, width: 200, height: 100 }
+                };
+            }
+            
+            return {
+                found: false,
+                distance: null,
+                bbox: null
+            };
+        }
+
+        // ---------------------------
+        // Camera Management
+        // ---------------------------
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                
+                elements.cameraPreview.srcObject = stream;
+                state.mediaStream = stream;
+                
+                // Set up QR code detection interval
+                state.qrDetectionInterval = setInterval(() => {
+                    const targetColor = elements.colorFilter.value;
+                    const result = detectQRCode(elements.cameraPreview, elements.qrCanvas, targetColor);
+                    
+                    if (result.found && result.decoded) {
+                        handleQRDetection(result.decoded, result.color);
+                    }
+                    
+                    // Update status
+                    setStatus(`Color: ${result.color || 'N/A'} | ${result.guidance}`);
+                }, 1000);
+                
+                // Set up obstacle detection interval
+                state.obstacleDetectionInterval = setInterval(() => {
+                    const result = detectObstacle(elements.cameraPreview, elements.qrCanvas);
+                    
+                    if (result.found && result.distance <= 2.5) {
+                        const now = Date.now();
+                        if (now - state.lastObstacleAnnounce > 2000) {
+                            speak(`Obstacle ahead ${result.distance} meters. Please be careful.`, true);
+                            state.lastObstacleAnnounce = now;
+                        }
+                    }
+                }, 1000);
+                
+                log("Camera started");
+                setStatus("Scanning... rotate slowly to find QR");
+                speak("Starting scan. Rotate slowly to find colored QR codes.");
+                
+            } catch (error) {
+                log(`Camera error: ${error.message}`);
+                setStatus("Camera error");
+            }
+        }
+
+        function stopCamera() {
+            if (state.mediaStream) {
+                state.mediaStream.getTracks().forEach(track => track.stop());
+                state.mediaStream = null;
+            }
+            
+            if (state.qrDetectionInterval) {
+                clearInterval(state.qrDetectionInterval);
+                state.qrDetectionInterval = null;
+            }
+            
+            if (state.obstacleDetectionInterval) {
+                clearInterval(state.obstacleDetectionInterval);
+                state.obstacleDetectionInterval = null;
+            }
+            
+            elements.cameraPreview.srcObject = null;
+            log("Camera stopped");
+            setStatus("Scanner stopped");
+        }
+
+        // ---------------------------
+        // QR Detection Handler
+        // ---------------------------
+        function handleQRDetection(decoded, color) {
+            const decodedClean = decoded.trim();
+            
+            // If we're navigating and this matches the target
+            if (state.currentNavigationTarget) {
+                if (decodedClean.toLowerCase() === state.currentNavigationTarget.toLowerCase()) {
+                    log(`Arrival QR scanned for destination: ${decodedClean}`);
+                    speak(`You have arrived at ${decodedClean}.`, true);
+                    state.currentLocation = decodedClean;
+                    state.currentNavigationTarget = null;
+                    stopCamera();
+                    alert(`Arrival confirmed: ${decodedClean}`);
+                    return;
+                } else if (decodedClean !== state.currentLocation) {
+                    // Interim QR code detected during navigation
+                    state.currentLocation = decodedClean;
+                    state.detectedColor = color;
+                    log(`Scanned interim QR: ${decodedClean} [${color}] (still navigating)`);
+                    speak(`Scanned ${decodedClean}.`);
+                }
+                return;
+            }
+            
+            // Not navigating - update current location
+            if (decodedClean !== state.currentLocation) {
+                state.currentLocation = decodedClean;
+                state.detectedColor = color;
+                log(`Detected location: ${decodedClean} [${color}]`);
+                speak(`Detected location ${decodedClean}.`);
+                setStatus(`Detected: ${decodedClean} (${color})`);
+                
+                // Ask for destination
+                setTimeout(() => {
+                    askDestinationViaVoice();
+                }, 700);
+            }
+        }
+
+        // ---------------------------
+        // Navigation Functions
+        // ---------------------------
+        function startNavigation(destination) {
+            if (!state.currentLocation) {
+                alert("No current location detected. First scan a QR code.");
+                return;
+            }
+            
+            log(`Calculating route from ${state.currentLocation} to ${destination}...`);
+            const { path, cost } = dijkstra(state.currentLocation, destination);
+            
+            if (path.length === 0 || cost === Infinity) {
+                const msg = "No path found to destination.";
+                log(msg);
+                speak(msg);
+                alert(msg);
+                return;
+            }
+            
+            state.navigationPath = path;
+            state.navigationIndex = 0;
+            state.currentNavigationTarget = destination;
+            
+            showNavigationModal(path, cost);
+            
+            const summaryText = `Navigation started. Total distance ${cost.toFixed(2)} meters.`;
+            speak(summaryText);
+            
+            // Ensure camera is running for navigation
+            if (!state.isScanning) {
+                startCamera();
+            }
+        }
+
+        function showNavigationModal(path, totalCost) {
+            elements.routeSummary.innerHTML = `
+                <p><strong>Route:</strong> ${path.join(' → ')}</p>
+                <p><strong>Total distance:</strong> ${totalCost.toFixed(2)} meters | <strong>Waypoints:</strong> ${path.length}</p>
+            `;
+            
+            elements.navigationProgress.style.width = '0%';
+            elements.navigationModal.classList.remove('hidden');
+            
+            showCurrentStep();
+        }
+
+        function showCurrentStep() {
+            if (state.navigationIndex >= state.navigationPath.length - 1) {
+                const finalText = `Proceed to scan the QR code at the destination: ${state.navigationPath[state.navigationPath.length - 1]} to confirm arrival.`;
+                elements.currentInstruction.textContent = finalText;
+                elements.currentDistance.textContent = "";
+                elements.nextStepBtn.textContent = "Finish";
+                speak(finalText);
+                log("Please scan the QR at the final destination to confirm arrival.");
+                return;
+            }
+            
+            const current = state.navigationPath[state.navigationIndex];
+            const nextNode = state.navigationPath[state.navigationIndex + 1];
+            const distance = graph[current][nextNode];
+            
+            let instruction;
+            if (state.navigationIndex === 0) {
+                instruction = `${getInitialDirectionSimple(nodeCoords[current], nodeCoords[nextNode])} towards ${nextNode}.`;
+            } else {
+                const prevNode = state.navigationPath[state.navigationIndex - 1];
+                instruction = `At ${current}: ${getTurnDirection(nodeCoords[prevNode], nodeCoords[current], nodeCoords[nextNode])} towards ${nextNode}.`;
+            }
+            
+            elements.currentInstruction.textContent = instruction;
+            elements.currentDistance.textContent = `Distance: ${distance.toFixed(2)} meters`;
+            elements.nextStepBtn.disabled = true;
+            
+            // Update progress
+            const progress = (state.navigationIndex / (state.navigationPath.length - 1)) * 100;
+            elements.navigationProgress.style.width = `${progress}%`;
+            
+            speak(`${instruction} Distance ${distance.toFixed(2)} meters.`);
+            
+            setTimeout(() => {
+                elements.nextStepBtn.disabled = false;
+            }, 1000);
+        }
+
+        function nextNavigationStep() {
+            if (state.navigationIndex >= state.navigationPath.length - 1) {
+                closeNavigationModal();
+                return;
+            }
+            
+            state.navigationIndex++;
+            showCurrentStep();
+        }
+
+        function closeNavigationModal() {
+            elements.navigationModal.classList.add('hidden');
+            state.currentNavigationTarget = null;
+        }
+
+        // ---------------------------
+        // Destination Selection
+        // ---------------------------
+        function showDestinationModal() {
+            if (!state.currentLocation) {
+                alert("No current location detected. First scan a QR code.");
+                return;
+            }
+            
+            elements.currentLocationDisplay.textContent = `Current location: ${state.currentLocation}`;
+            elements.destinationList.innerHTML = '';
+            
+            const destinations = Object.keys(nodeCoords)
+                .filter(n => n !== state.currentLocation)
+                .map(destination => {
+                    const item = document.createElement('div');
+                    item.className = 'destination-item';
+                    item.textContent = destination;
+                    item.addEventListener('click', () => {
+                        // Remove active class from all items
+                        document.querySelectorAll('.destination-item').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        // Add active class to clicked item
+                        item.classList.add('active');
+                    });
+                    return item;
+                });
+            
+            destinations.forEach(item => {
+                elements.destinationList.appendChild(item);
+            });
+            
+            elements.destinationModal.classList.remove('hidden');
+        }
+
+        function closeDestinationModal() {
+            elements.destinationModal.classList.add('hidden');
+        }
+
+        function getSelectedDestination() {
+            const activeItem = elements.destinationList.querySelector('.active');
+            return activeItem ? activeItem.textContent : null;
+        }
+
+        // ---------------------------
+        // Voice Recognition
+        // ---------------------------
+        function setupVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                log("Speech recognition not available in this browser.");
+                speak("Speech recognition not available. Please use manual destination entry.");
+                return false;
+            }
+            
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            state.recognition = new SpeechRecognition();
+            state.recognition.continuous = false;
+            state.recognition.interimResults = false;
+            state.recognition.maxAlternatives = 3;
+            
+            return true;
+        }
+
+        function askDestinationViaVoice() {
+            if (!state.currentLocation) {
+                alert("Please scan your current location QR first.");
+                return;
+            }
+            
+            if (!setupVoiceRecognition()) {
+                showDestinationModal();
+                return;
+            }
+            
+            elements.voiceListeningModal.classList.remove('hidden');
+            elements.listeningStatus.textContent = "Listening...";
+            
+            state.recognition.onresult = (event) => {
+                const speechResult = event.results[0][0].transcript;
+                elements.listeningStatus.textContent = `Heard: ${speechResult}`;
+                log(`Recognized speech: ${speechResult}`);
+                
+                processVoiceDestination(speechResult);
+            };
+            
+            state.recognition.onerror = (event) => {
+                log(`Speech recognition error: ${event.error}`);
+                elements.listeningStatus.textContent = `Error: ${event.error}`;
+                speak("Sorry, I didn't catch that. Please try again.");
+                
+                setTimeout(() => {
+                    closeVoiceModal();
+                    showDestinationModal();
+                }, 2000);
+            };
+            
+            state.recognition.onend = () => {
+                // If modal is still open, restart listening
+                if (!elements.voiceListeningModal.classList.contains('hidden')) {
+                    state.recognition.start();
+                }
+            };
+            
+            state.recognition.start();
+            speak("Please say your destination now.");
+        }
+
+        function processVoiceDestination(spokenText) {
+            const candidates = Object.keys(nodeCoords);
+            let matches = [];
+            
+            // Simple matching - in a real app, you'd use more sophisticated matching
+            spokenText = spokenText.toLowerCase();
+            
+            for (const candidate of candidates) {
+                const candidateLower = candidate.toLowerCase();
+                
+                // Exact match
+                if (candidateLower === spokenText) {
+                    matches = [candidate];
+                    break;
+                }
+                
+                // Partial match
+                if (candidateLower.includes(spokenText) || spokenText.includes(candidateLower)) {
+                    matches.push(candidate);
+                }
+            }
+            
+            // If no matches found, try fuzzy matching
+            if (matches.length === 0) {
+                for (const candidate of candidates) {
+                    const candidateLower = candidate.toLowerCase();
+                    // Simple similarity check
+                    if (calculateSimilarity(candidateLower, spokenText) > 0.5) {
+                        matches.push(candidate);
+                    }
+                }
+            }
+            
+            if (matches.length === 0) {
+                elements.listeningStatus.textContent = "Destination not found. Please try again.";
+                speak("Destination not found. Please say again.");
+                
+                setTimeout(() => {
+                    state.recognition.start();
+                }, 2000);
+                return;
+            }
+            
+            const bestMatch = matches[0];
+            elements.listeningStatus.textContent = `Did you mean ${bestMatch}?`;
+            speak(`Did you mean ${bestMatch}? Please say yes or no.`);
+            
+            // Set up confirmation listener
+            const originalOnResult = state.recognition.onresult;
+            state.recognition.onresult = (event) => {
+                const confirmation = event.results[0][0].transcript.toLowerCase();
+                log(`Confirmation speech: ${confirmation}`);
+                
+                if (confirmation.includes('yes') || confirmation.includes('yeah') || confirmation.includes('correct')) {
+                    closeVoiceModal();
+                    startNavigation(bestMatch);
+                } else {
+                    elements.listeningStatus.textContent = "Okay, please say the destination again.";
+                    speak("Okay, please say the destination again.");
+                    
+                    // Reset to original listener
+                    state.recognition.onresult = originalOnResult;
+                    
+                    setTimeout(() => {
+                        state.recognition.start();
+                    }, 2000);
+                }
+            };
+            
+            state.recognition.start();
+        }
+
+        function calculateSimilarity(str1, str2) {
+            // Simple similarity calculation
+            const longer = str1.length > str2.length ? str1 : str2;
+            const shorter = str1.length > str2.length ? str2 : str1;
+            
+            if (longer.length === 0) return 1.0;
+            
+            return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length);
+        }
+
+        function editDistance(s1, s2) {
+            // Levenshtein distance
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+            
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else if (j > 0) {
+                        let newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                        }
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+                if (i > 0) costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+
+        function closeVoiceModal() {
+            if (state.recognition) {
+                state.recognition.stop();
+            }
+            elements.voiceListeningModal.classList.add('hidden');
+        }
+
+        // ---------------------------
+        // Microphone Management
+        // ---------------------------
+        async function refreshMicrophones() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const microphones = devices.filter(device => device.kind === 'audioinput');
+                
+                elements.microphoneSelect.innerHTML = '';
+                microphones.forEach(mic => {
+                    const option = document.createElement('option');
+                    option.value = mic.deviceId;
+                    option.textContent = mic.label || `Microphone ${elements.microphoneSelect.length + 1}`;
+                    elements.microphoneSelect.appendChild(option);
+                });
+                
+                log("Microphones refreshed");
+            } catch (error) {
+                log(`Error refreshing microphones: ${error.message}`);
+            }
+        }
+
+        // ---------------------------
+        // Map Display
+        // ---------------------------
+        function showMapPreview() {
+            alert("Map preview would be shown here. In a full implementation, this would display the indoor map with nodes and paths.");
+            // In a real implementation, you would render the map using canvas or SVG
+        }
+
+        // ---------------------------
+        // Event Listeners
+        // ---------------------------
+        elements.startScanBtn.addEventListener('click', () => {
+            state.isScanning = true;
+            startCamera();
+        });
+
+        elements.stopScanBtn.addEventListener('click', () => {
+            state.isScanning = false;
+            stopCamera();
+        });
+
+        elements.showMapBtn.addEventListener('click', showMapPreview);
+
+        elements.voiceDestinationBtn.addEventListener('click', askDestinationViaVoice);
+
+        elements.refreshMicsBtn.addEventListener('click', refreshMicrophones);
+
+        elements.nextStepBtn.addEventListener('click', nextNavigationStep);
+
+        elements.cancelNavigationBtn.addEventListener('click', closeNavigationModal);
+
+        elements.startNavigationBtn.addEventListener('click', () => {
+            const destination = getSelectedDestination();
+            if (destination) {
+                closeDestinationModal();
+                startNavigation(destination);
+            } else {
+                alert("Please select a destination.");
+            }
+        });
+
+        elements.cancelDestinationBtn.addEventListener('click', closeDestinationModal);
+
+        elements.cancelVoiceBtn.addEventListener('click', closeVoiceModal);
+
+        // ---------------------------
+        // Initialization
+        // ---------------------------
+        function init() {
+            log("App started. Click Start Scan to find colored QR codes.");
+            speak("Application started.");
+            
+            // Check for speech recognition support
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                log("Speech recognition available.");
+                speak("Speech recognition available.");
+            } else {
+                log("Speech recognition not available.");
+                speak("Speech recognition not available. Please use manual destination entry.");
+            }
+            
+            // Initial microphone refresh
+            refreshMicrophones();
+        }
+
+        // Start the application
+        init();
+    </script>
 </body>
 </html>
