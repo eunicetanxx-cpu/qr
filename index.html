@@ -1,1158 +1,1304 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indoor Navigation (Voice + QR)</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-            color: #fff;
-            line-height: 1.6;
-            padding: 15px;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-        }
-        
-        .status-bar {
-            background: rgba(0, 0, 0, 0.4);
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: bold;
-            text-align: center;
-        }
-        
-        .camera-container {
-            position: relative;
-            width: 100%;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-        }
-        
-        #cameraPreview {
-            width: 100%;
-            height: 300px;
-            background-color: #000;
-            display: block;
-            object-fit: cover;
-        }
-        
-        .detection-frame {
-            position: absolute;
-            border: 3px solid #00ff00;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
-            pointer-events: none;
-        }
-        
-        .obstacle-frame {
-            position: absolute;
-            border: 3px solid #ff0000;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-            pointer-events: none;
-        }
-        
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        
-        button {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(to right, #3498db, #2980b9);
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-        }
-        
-        button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
-        }
-        
-        button.scan {
-            background: linear-gradient(to right, #2ecc71, #27ae60);
-        }
-        
-        button.stop {
-            background: linear-gradient(to right, #e74c3c, #c0392b);
-        }
-        
-        button.voice {
-            background: linear-gradient(to right, #9b59b6, #8e44ad);
-        }
-        
-        select {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 10px;
-            width: 100%;
-        }
-        
-        .log-container {
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            height: 150px;
-            overflow-y: auto;
-        }
-        
-        .log-entry {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .log-time {
-            color: #3498db;
-            font-size: 0.8rem;
-        }
-        
-        .log-message {
-            color: #fff;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .modal-content {
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f);
-            border-radius: 15px;
-            padding: 20px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-        
-        .instruction {
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: #f1c40f;
-        }
-        
-        .destination-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-        }
-        
-        .destination-item {
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .destination-item:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .speech-status {
-            text-align: center;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-style: italic;
-        }
-        
-        .voice-controls {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .pulse {
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        @media (min-width: 768px) {
-            .container {
-                max-width: 700px;
-            }
-            
-            .controls {
-                grid-template-columns: 1fr 1fr 1fr;
-            }
-            
-            #cameraPreview {
-                height: 400px;
-            }
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Browser Indoor Navigation (Color QR + Full Navigation)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 12px; background:#f7fafc; color:#111; }
+    header { display:flex; align-items:center; gap:12px; }
+    h1 { margin:0; font-size:18px; }
+    .controls { margin:8px 0; display:flex; gap:8px; flex-wrap:wrap; }
+    button, select { padding:8px 10px; font-size:14px; }
+    #preview { width: 820px; max-width:100%; height: 360px; background:#222; display:block; margin-top:8px; object-fit:cover; }
+    #canvasDisp { display:none; } /* internal canvas used for processing */
+    #log { width:820px; max-width:100%; height:120px; overflow:auto; background:#fff; border:1px solid #ddd; padding:8px; margin-top:8px; white-space:pre-wrap;}
+    #overlayText { margin-top:6px; font-weight:600; color:#444; }
+    #result { margin-top:6px; color:#222; }
+    .map-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); }
+    .map-modal .box { background:#fff; padding:12px; max-width:900px; width:95%; max-height:85%; overflow:auto; border-radius:6px; }
+    .small { font-size:13px; color:#666; }
+    #debugMasks { display:flex; gap:8px; margin-top:8px; align-items:center; }
+    #debugMasks canvas { border:1px solid #ccc; width:120px; height:120px; }
+    .mask-label { text-align:center; font-size:12px; color:#333; }
+    .scan-progress { margin-top: 10px; padding: 8px; background: #e6f3ff; border-radius: 4px; }
+    .found-qr { color: green; font-weight: bold; }
+    .pending-qr { color: #666; }
+  </style>
+  <!-- jsQR and OpenCV -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Indoor Navigation (Voice + QR)</h1>
-            <div class="status-bar" id="statusMessage">Ready to start</div>
-        </header>
-        
-        <div class="camera-container">
-            <video id="cameraPreview" autoplay playsinline></video>
-            <!-- QR code detection frame will be added here dynamically -->
-            <!-- Obstacle detection frame will be added here dynamically -->
-        </div>
-        
-        <div class="controls">
-            <select id="colorFilter">
-                <option value="any">Any Color QR</option>
-                <option value="red">Red QR</option>
-                <option value="green">Green QR</option>
-                <option value="blue">Blue QR</option>
-            </select>
-            
-            <button class="scan" id="startScanBtn">Start Scan</button>
-            <button class="stop" id="stopScanBtn">Stop Scan</button>
-            <button class="voice" id="voiceDestinationBtn">Voice Destination</button>
-            <button id="showMapBtn">Show Map</button>
-            <button id="refreshMicsBtn">Refresh Mics</button>
-        </div>
-        
-        <div class="log-container" id="logContainer">
-            <div class="log-entry">
-                <span class="log-time">[12:00:00]</span>
-                <span class="log-message"> Application started. Click Start Scan to begin.</span>
-            </div>
-        </div>
+  <header>
+    <h1>Browser Indoor Navigation (Color QR + Debug)</h1>
+    <div class="small">Multi-color QR → navigation & voice (no backend)</div>
+  </header>
+
+  <div class="controls">
+    <label>QR Color:
+      <select id="colorFilter"><option>Any</option><option>Red</option><option>Green</option><option>Blue</option></select>
+    </label>
+    <button id="startBtn">Start Scan</button>
+    <button id="stopBtn">Stop Scan</button>
+    <button id="voiceDestBtn">Voice-Dest & Start</button>
+    <button id="mapBtn">Show Map</button>
+    <button id="restartBtn">Restart Scanner</button>
+  </div>
+
+  <div id="overlayText">Initializing...</div>
+  <video id="video" autoplay playsinline style="display:none"></video>
+  <canvas id="canvasDisp"></canvas>
+  <img id="preview" alt="camera preview" />
+
+  <div class="scan-progress" id="scanProgress">
+    <div>Scanning Progress:</div>
+    <div id="progressRed" class="pending-qr">🔴 Red QR: Not found</div>
+    <div id="progressGreen" class="pending-qr">🟢 Green QR: Not found</div>
+    <div id="progressBlue" class="pending-qr">🔵 Blue QR: Not found</div>
+  </div>
+
+  <div id="result"></div>
+  <div id="log"></div>
+
+  <!-- Debug canvases -->
+  <div id="debugMasks">
+    <div>
+      <canvas id="maskRed"></canvas>
+      <div class="mask-label">Red mask</div>
     </div>
+    <div>
+      <canvas id="maskGreen"></canvas>
+      <div class="mask-label">Green mask</div>
+    </div>
+    <div>
+      <canvas id="maskBlue"></canvas>
+      <div class="mask-label">Blue mask</div>
+    </div>
+  </div>
+
+  <div class="map-modal" id="mapModal">
+    <div class="box">
+      <h3>Map Preview</h3>
+      <canvas id="mapCanvas" width="900" height="600" style="background:#fff;border:1px solid #ddd"></canvas>
+      <div style="text-align:right; margin-top:8px;">
+        <button id="closeMap">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ======= UI elements ======= */
+const video = document.getElementById('video');
+const canvasDisp = document.getElementById('canvasDisp');
+const ctxDisp = canvasDisp.getContext('2d', { willReadFrequently: true });
+const preview = document.getElementById('preview');
+const overlayText = document.getElementById('overlayText');
+const resultEl = document.getElementById('result');
+const logEl = document.getElementById('log');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const voiceDestBtn = document.getElementById('voiceDestBtn');
+const colorFilterEl = document.getElementById('colorFilter');
+const mapBtn = document.getElementById('mapBtn');
+const mapModal = document.getElementById('mapModal');
+const mapCanvas = document.getElementById('mapCanvas');
+const closeMap = document.getElementById('closeMap');
+const restartBtn = document.getElementById('restartBtn');
+const progressRed = document.getElementById('progressRed');
+const progressGreen = document.getElementById('progressGreen');
+const progressBlue = document.getElementById('progressBlue');
+
+const log = (m) => { console.log(m); logEl.innerText += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+/* ======= Config & state ======= */
+const SCAN_SIZE = 250;
+let scanBox = { x: 0, y: 0, size: SCAN_SIZE };
+let cvReady = false;
+let animationFrameId = null;
+let stream = null;
+let scannerRunning = false;
+let foundResults = new Map();
+let scanStartTime = Date.now();
+const MAX_SCAN_TIME = 30000;
+let currentLocation = null;
+let currentNavigationTarget = null;
+let latestObstacle = null;
+let actionsTriggered = false;
+
+/* ======= Graph & helpers ======= */
+const node_coords = {
+  "Female Toilet (NGT1)": [2009, 1357],
+  "Male Toilet (NGT2)": [1955, 1357],
+  "N001 (backdoor)": [2100, 1135],
+  "N001": [1907, 1121],
+  "N002": [1651, 1097],
+  "N003": [1387, 1074],
+  "N004": [892, 1097],
+  "N005": [638, 1115],
+  "N006": [383, 1139],
+  "N007": [127, 1158],
+  "N008": [4, 1330],
+  "Female Toilet (NGT5)": [357, 1350],
+  "Male Toilet (NGT4)": [403, 1351],
+  "N009": [492, 1330],
+  "N010": [822, 1335],
+  "N011": [1251, 1340],
+  "N012": [1597, 1340],
+};
+
+const graph_raw = {
+  "Female Toilet (NGT1)": {"Male Toilet (NGT2)": 1.89},
+  "N001": {"Female Toilet (NGT1)": 9.00, "N001 (backdoor)": 6.77, "N002": 9.00},
+  "N002": {"N003": 9.28},
+  "N003": {"N004": 17.35},
+  "N004": {"N005": 8.91},
+  "N005": {"N006": 8.97},
+  "N006": {"Male Toilet (NGT4)": 7.45, "Female Toilet (NGT5)": 7.44, "N007": 8.99},
+  "N007": {"N008": 7.40},
+  "N008": {"Female Toilet (NGT5)": 12.38},
+  "Female Toilet (NGT5)": {"Male Toilet (NGT4)": 1.61},
+  "Male Toilet (NGT4)": {"N009": 3.20},
+  "N009": {"N010": 11.55},
+  "N010": {"N011": 15.02},
+  "N011": {"N012": 12.11},
+  "N012": {"Male Toilet (NGT2)": 12.55}
+};
+
+function add_bidirectional_edges(graph_in) {
+  const new_graph = {};
+  for (const k in graph_in) new_graph[k] = {};
+  for (const from in graph_in) {
+    for (const to in graph_in[from]) {
+      const w = graph_in[from][to];
+      new_graph[from][to] = w;
+      if (!new_graph[to]) new_graph[to] = {};
+      new_graph[to][from] = w;
+    }
+  }
+  return new_graph;
+}
+const graph = add_bidirectional_edges(graph_raw);
+
+function dijkstra(gr, start, end) {
+  const pq = new MinHeap();
+  pq.push({cost:0,node:start,path:[]});
+  const visited = new Set();
+  while (!pq.empty()) {
+    const item = pq.pop();
+    const {cost, node, path} = item;
+    if (visited.has(node)) continue;
+    const newPath = path.concat([node]);
+    visited.add(node);
+    if (node === end) return {path:newPath, cost};
+    const neighbors = gr[node] || {};
+    for (const nb in neighbors) {
+      if (!visited.has(nb)) pq.push({cost: cost + neighbors[nb], node: nb, path: newPath});
+    }
+  }
+  return {path:[], cost: Infinity};
+}
+class MinHeap {
+  constructor(){ this.a = []; }
+  push(x){ this.a.push(x); this._siftUp(); }
+  pop(){ if(this.a.length===0) return null; const r=this.a[0]; const last=this.a.pop(); if(this.a.length) { this.a[0]=last; this._siftDown(); } return r; }
+  empty(){ return this.a.length===0; }
+  _siftUp(){ let i=this.a.length-1; while(i>0){ let p=Math.floor((i-1)/2); if(this.a[p].cost<=this.a[i].cost) break; [this.a[p],this.a[i]]=[this.a[i],this.a[p]]; i=p; } }
+  _siftDown(){ let i=0; const n=this.a.length; while(true){ let l=i*2+1; let r=i*2+2; let smallest=i; if(l<n && this.a[l].cost < this.a[smallest].cost) smallest=l; if(r<n && this.a[r].cost < this.a[smallest].cost) smallest=r; if(smallest===i) break; [this.a[i],this.a[smallest]]=[this.a[smallest],this.a[i]]; i=smallest; } }
+}
+
+/* ======= Direction helpers ======= */
+function get_turn_direction(p1,p2,p3) {
+  const v1 = [p2[0]-p1[0], p2[1]-p1[1]];
+  const v2 = [p3[0]-p2[0], p3[1]-p2[1]];
+  const raw = (Math.atan2(v2[1], v2[0]) - Math.atan2(v1[1], v1[0])) * 180/Math.PI;
+  const angle = (raw + 360) % 360;
+  if (angle < 45 || angle > 315) return "Move straight";
+  if (angle >= 45 && angle < 135) return "Turn right";
+  if (angle >= 135 && angle < 225) return "Turn back";
+  return "Turn left";
+}
+function get_initial_direction_simple(p1,p2) {
+  const dx = p2[0]-p1[0], dy = p2[1]-p1[1];
+  const angle = (Math.atan2(dy,dx) * 180/Math.PI + 360) % 360;
+  if (angle >= 315 || angle < 45) return "Move straight";
+  if (angle >= 45 && angle < 135) return "Turn right";
+  if (angle >= 135 && angle < 225) return "Turn back";
+  return "Turn left";
+}
+
+/* ======= TTS manager ======= */
+const TTS = {
+  queue: [],
+  speaking: false,
+  speak(text, interrupt=false) {
+    if (!text) return;
+    if (interrupt) {
+      this.queue = [];
+      if (speechSynthesis.speaking) speechSynthesis.cancel();
+    }
+    this.queue.push(text);
+    this._maybeSpeak();
+  },
+  _maybeSpeak() {
+    if (this.speaking) return;
+    const next = this.queue.shift();
+    if (!next) return;
+    this.speaking = true;
+    const utt = new SpeechSynthesisUtterance(next);
+    utt.onend = () => { this.speaking = false; setTimeout(()=>this._maybeSpeak(), 80); };
+    utt.onerror = () => { this.speaking = false; setTimeout(()=>this._maybeSpeak(), 80); };
+    speechSynthesis.speak(utt);
+  }
+};
+
+/* ======= Speech recognition ======= */
+let SR_AVAILABLE = false;
+try {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition) SR_AVAILABLE = true;
+} catch(e){ SR_AVAILABLE=false; }
+
+/* ======= Enhanced color detection functions ======= */
+function createColorMask(imageData, color) {
+  const data = imageData.data;
+  const maskData = new Uint8ClampedArray(data.length);
+  let colorPixels = 0;
+  let totalPixels = data.length / 4;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    let isTargetColor = false;
     
-    <!-- Navigation Modal -->
-    <div class="modal" id="navigationModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Navigation</div>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div id="routeSummary"></div>
-            <div class="instruction" id="currentInstruction"></div>
-            <div id="currentDistance"></div>
-            <div class="controls">
-                <button id="nextStepBtn">Next Step</button>
-                <button id="cancelNavigationBtn">Cancel Navigation</button>
-            </div>
-        </div>
-    </div>
+    if (color === 'red') {
+      // Multiple red detection strategies
+      isTargetColor = (r > g + 30 && r > b + 30 && r > 80) || 
+                     (r > 150 && r > g * 1.5 && r > b * 1.5) ||
+                     (r > 120 && g < 80 && b < 80);
+    } else if (color === 'green') {
+      // Multiple green detection strategies
+      isTargetColor = (g > r + 30 && g > b + 30 && g > 80) || 
+                     (g > 150 && g > r * 1.5 && g > b * 1.5) ||
+                     (g > 120 && r < 80 && b < 80);
+    } else if (color === 'blue') {
+      // Enhanced blue detection with multiple strategies
+      isTargetColor = (b > r + 15 && b > g + 15 && b > 50) || 
+                     (b > 100 && b > r * 1.1 && b > g * 1.1) ||
+                     (b > 70 && r < 120 && g < 120) ||
+                     (b > 60 && b > r && b > g && (r + g) < b * 1.5) ||
+                     // Additional blue detection for darker blues
+                     (b > 40 && b > r * 1.2 && b > g * 1.2 && r < 100 && g < 100);
+    }
     
-    <!-- Destination Modal -->
-    <div class="modal" id="destinationModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Select Destination</div>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div id="currentLocationDisplay"></div>
-            <div class="destination-list" id="destinationList"></div>
-            <div class="controls">
-                <button id="startNavigationBtn">Start Navigation</button>
-                <button id="cancelDestinationBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
+    if (isTargetColor) {
+      colorPixels++;
+      maskData[i] = 255;     // R
+      maskData[i + 1] = 255; // G  
+      maskData[i + 2] = 255; // B
+      maskData[i + 3] = 255; // A
+    } else {
+      maskData[i] = 0;
+      maskData[i + 1] = 0;
+      maskData[i + 2] = 0;
+      maskData[i + 3] = 255;
+    }
+  }
+  
+  // Debug: Log color statistics
+  const colorRatio = colorPixels / totalPixels;
+  if (colorRatio > 0.01) {
+    console.log(`${color} mask: ${colorPixels}/${totalPixels} pixels (${(colorRatio*100).toFixed(1)}%)`);
+  }
+  
+  return new ImageData(maskData, imageData.width, imageData.height);
+}
+
+function preprocessColor(imageData, color) {
+  // Try multiple approaches for better color detection
+  
+  // Approach 1: Simple channel extraction
+  const channelData = extractColorChannel(imageData, color);
+  
+  // Approach 2: Enhanced color masking
+  const maskData = createColorMask(imageData, color);
+  
+  // For blue, try both approaches as blue QR codes can be tricky
+  if (color === 'blue') {
+    // Try the mask approach first for blue
+    return maskData;
+  }
+  
+  // For red and green, use channel extraction
+  return channelData;
+}
+
+function extractColorChannel(imageData, channel) {
+  const data = new Uint8ClampedArray(imageData.data);
+  let colorPixels = 0;
+  let totalPixels = data.length / 4;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1]; 
+    const b = data[i + 2];
     
-    <!-- Voice Listening Modal -->
-    <div class="modal" id="voiceListeningModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Voice Destination</div>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div class="speech-status" id="listeningStatus">Listening... Please speak your destination</div>
-            <div class="voice-controls">
-                <button id="startListeningBtn">Start Listening</button>
-                <button id="cancelVoiceBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
+    let intensity;
+    let isColorDominant = false;
+    
+    if (channel === 'red') {
+      intensity = r;
+      isColorDominant = (r > g && r > b && r > 50);
+      if (isColorDominant) colorPixels++;
+    } else if (channel === 'green') {
+      intensity = g;
+      isColorDominant = (g > r && g > b && g > 50);
+      if (isColorDominant) colorPixels++;
+    } else if (channel === 'blue') {
+      intensity = b;
+      // More aggressive blue detection
+      isColorDominant = (b > r && b > g && b > 30) || 
+                       (b > 60 && b > r * 1.1 && b > g * 1.1) ||
+                       (b > 40 && r < 100 && g < 100);
+      if (isColorDominant) {
+        colorPixels++;
+        // Enhance blue intensity for better QR detection
+        intensity = Math.min(255, b * 1.8);
+      }
+    }
+    
+    data[i] = intensity;
+    data[i + 1] = intensity;
+    data[i + 2] = intensity;
+    // alpha stays the same
+  }
+  
+  // Debug logging for blue channel specifically
+  if (channel === 'blue') {
+    const colorRatio = colorPixels / totalPixels;
+    if (colorRatio > 0.005) {
+      console.log(`Blue channel enhanced: ${colorPixels}/${totalPixels} pixels (${(colorRatio*100).toFixed(2)}%)`);
+    }
+  }
+  
+  return new ImageData(data, imageData.width, imageData.height);
+}
 
-    <script>
-        // Application State and Configuration
-        const nodeCoords = {
-            "Female Toilet (NGT1)": [2009, 1357],
-            "Male Toilet (NGT2)": [1955, 1357],
-            "N001 (backdoor)": [2100, 1135],
-            "N001": [1907, 1121],
-            "N002": [1651, 1097],
-            "N003": [1387, 1074],
-            "N004": [892, 1097],
-            "N005": [638, 1115],
-            "N006": [383, 1139],
-            "N007": [127, 1158],
-            "N008": [4, 1330],
-            "Female Toilet (NGT5)": [357, 1350],
-            "Male Toilet (NGT4)": [403, 1351],
-            "N009": [492, 1330],
-            "N010": [822, 1335],
-            "N011": [1251, 1340],
-            "N012": [1597, 1340],
+/* ======= OpenCV enhanced detection with better blue handling ======= */
+function detectWithOpenCV(imageData, color) {
+  if (!cvReady) return null;
+  
+  try {
+    const src = cv.matFromImageData(imageData);
+    let hsv = new cv.Mat();
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+    
+    let mask = new cv.Mat();
+    let low, high;
+    
+    if (color === 'red') {
+      // Red has two ranges in HSV
+      let mask1 = new cv.Mat(), mask2 = new cv.Mat();
+      low = new cv.Scalar(0, 40, 40);
+      high = new cv.Scalar(10, 255, 255);
+      cv.inRange(hsv, low, high, mask1);
+      
+      low = new cv.Scalar(170, 40, 40);  
+      high = new cv.Scalar(180, 255, 255);
+      cv.inRange(hsv, low, high, mask2);
+      
+      cv.add(mask1, mask2, mask);
+      mask1.delete();
+      mask2.delete();
+      
+    } else if (color === 'green') {
+      low = new cv.Scalar(35, 30, 30);
+      high = new cv.Scalar(85, 255, 255);
+      cv.inRange(hsv, low, high, mask);
+      
+    } else if (color === 'blue') {
+      // Enhanced blue detection with multiple ranges
+      let mask1 = new cv.Mat(), mask2 = new cv.Mat(), mask3 = new cv.Mat();
+      
+      // Primary blue range
+      low = new cv.Scalar(100, 25, 25);
+      high = new cv.Scalar(130, 255, 255);
+      cv.inRange(hsv, low, high, mask1);
+      
+      // Secondary blue range for darker blues
+      low = new cv.Scalar(90, 20, 20);
+      high = new cv.Scalar(140, 255, 255);
+      cv.inRange(hsv, low, high, mask2);
+      
+      // Tertiary range for light blues
+      low = new cv.Scalar(105, 15, 30);
+      high = new cv.Scalar(125, 255, 255);
+      cv.inRange(hsv, low, high, mask3);
+      
+      // Combine all blue masks
+      cv.add(mask1, mask2, mask);
+      cv.add(mask, mask3, mask);
+      
+      mask1.delete();
+      mask2.delete();
+      mask3.delete();
+    }
+    
+    // Enhanced morphological operations for better QR detection
+    let kernel3 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+    let kernel5 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+    
+    // Clean up noise
+    cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel3);
+    // Fill gaps
+    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel5);
+    // Final cleanup
+    cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel3);
+    
+    kernel3.delete();
+    kernel5.delete();
+    
+    // Convert back to RGBA
+    let rgba = new cv.Mat();
+    cv.cvtColor(mask, rgba, cv.COLOR_GRAY2RGBA);
+    const result = new ImageData(new Uint8ClampedArray(rgba.data), rgba.cols, rgba.rows);
+    
+    // Show debug mask
+    try {
+      const canvasId = `mask${color.charAt(0).toUpperCase() + color.slice(1)}`;
+      cv.imshow(canvasId, mask);
+    } catch(e) {}
+    
+    src.delete();
+    hsv.delete();
+    mask.delete();
+    rgba.delete();
+    
+    return result;
+    
+  } catch(e) {
+    console.error('OpenCV detection error:', e);
+    return null;
+  }
+}
+
+/* ======= Optimized QR detection function with better blue handling ======= */
+function detect_colored_qr_in_frame_js(imageData, targetColor=null) {
+  const COLORS = ['red', 'green', 'blue'];
+  
+  // For blue specifically, try multiple approaches
+  for (const color of COLORS) {
+    if (targetColor && color !== targetColor) continue;
+    
+    // Method 1: Enhanced channel extraction (fastest)
+    try {
+      const chImg = extractColorChannel(imageData, color);
+      const code = jsQR(chImg.data, chImg.width, chImg.height, { 
+        inversionAttempts: 'attemptBoth' 
+      });
+      if (code && code.data) {
+        return { 
+          found: true, 
+          decoded: code.data.trim(), 
+          colorFound: color, 
+          method: 'Enhanced-Channel' 
         };
-
-        const graphRaw = {
-            "Female Toilet (NGT1)": {"Male Toilet (NGT2)": 1.89},
-            "N001": {"Female Toilet (NGT1)": 9.00, "N001 (backdoor)": 6.77, "N002": 9.00},
-            "N002": {"N003": 9.28},
-            "N003": {"N004": 17.35},
-            "N004": {"N005": 8.91},
-            "N005": {"N006": 8.97},
-            "N006": {"Male Toilet (NGT4)": 7.45, "Female Toilet (NGT5)": 7.44, "N007": 8.99},
-            "N007": {"N008": 7.40},
-            "N008": {"Female Toilet (NGT5)": 12.38},
-            "Female Toilet (NGT5)": {"Male Toilet (NGT4)": 1.61},
-            "Male Toilet (NGT4)": {"N009": 3.20},
-            "N009": {"N010": 11.55},
-            "N010": {"N011": 15.02},
-            "N011": {"N012": 12.11},
-            "N012": {"Male Toilet (NGT2)": 12.55}
-        };
-
-        // Make graph bidirectional
-        const graph = {};
-        for (const node in graphRaw) {
-            graph[node] = {...graphRaw[node]};
-        }
-        for (const fromNode in graphRaw) {
-            for (const toNode in graphRaw[fromNode]) {
-                if (!graph[toNode]) {
-                    graph[toNode] = {};
-                }
-                graph[toNode][fromNode] = graphRaw[fromNode][toNode];
-            }
-        }
-
-        // Application state
-        let state = {
-            currentLocation: null,
-            detectedColor: null,
-            isScanning: false,
-            currentNavigationTarget: null,
-            navigationPath: [],
-            navigationIndex: 0,
-            mediaStream: null,
-            speechSynthesis: window.speechSynthesis,
-            recognition: null,
-            qrDetectionInterval: null,
-            obstacleDetectionInterval: null,
-            lastObstacleAnnounce: 0,
-            qrFrame: null,
-            obstacleFrame: null
-        };
-
-        // UI Elements
-        const elements = {
-            statusMessage: document.getElementById('statusMessage'),
-            cameraPreview: document.getElementById('cameraPreview'),
-            logContainer: document.getElementById('logContainer'),
-            colorFilter: document.getElementById('colorFilter'),
-            startScanBtn: document.getElementById('startScanBtn'),
-            stopScanBtn: document.getElementById('stopScanBtn'),
-            voiceDestinationBtn: document.getElementById('voiceDestinationBtn'),
-            showMapBtn: document.getElementById('showMapBtn'),
-            refreshMicsBtn: document.getElementById('refreshMicsBtn'),
-            navigationModal: document.getElementById('navigationModal'),
-            destinationModal: document.getElementById('destinationModal'),
-            voiceListeningModal: document.getElementById('voiceListeningModal'),
-            routeSummary: document.getElementById('routeSummary'),
-            currentInstruction: document.getElementById('currentInstruction'),
-            currentDistance: document.getElementById('currentDistance'),
-            nextStepBtn: document.getElementById('nextStepBtn'),
-            cancelNavigationBtn: document.getElementById('cancelNavigationBtn'),
-            currentLocationDisplay: document.getElementById('currentLocationDisplay'),
-            destinationList: document.getElementById('destinationList'),
-            startNavigationBtn: document.getElementById('startNavigationBtn'),
-            cancelDestinationBtn: document.getElementById('cancelDestinationBtn'),
-            listeningStatus: document.getElementById('listeningStatus'),
-            startListeningBtn: document.getElementById('startListeningBtn'),
-            cancelVoiceBtn: document.getElementById('cancelVoiceBtn')
-        };
-
-        // Close modal buttons
-        document.querySelectorAll('.close-modal').forEach(button => {
-            button.addEventListener('click', () => {
-                document.querySelectorAll('.modal').forEach(modal => {
-                    modal.style.display = 'none';
-                });
-            });
+      }
+    } catch(e) { 
+      console.warn('Enhanced channel decode error', color, e); 
+    }
+    
+    // Method 2: Color masking (more accurate for blue)
+    if (color === 'blue') {
+      try {
+        const maskImg = createColorMask(imageData, color);
+        const code = jsQR(maskImg.data, maskImg.width, maskImg.height, { 
+          inversionAttempts: 'attemptBoth' 
         });
-
-        // Utility Functions
-        function log(message) {
-            const now = new Date();
-            const timeString = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
-            
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            logEntry.innerHTML = `<span class="log-time">${timeString}</span><span class="log-message"> ${message}</span>`;
-            
-            elements.logContainer.appendChild(logEntry);
-            elements.logContainer.scrollTop = elements.logContainer.scrollHeight;
-            console.log(message);
+        if (code && code.data) {
+          return { 
+            found: true, 
+            decoded: code.data.trim(), 
+            colorFound: color, 
+            method: 'Color-Mask' 
+          };
         }
-
-        function setStatus(message) {
-            elements.statusMessage.textContent = message;
-        }
-
-        function speak(text, interrupt = false) {
-            if (interrupt) {
-                state.speechSynthesis.cancel();
-            }
-            
-            const utterance = new SpeechSynthesisUtterance(text);
-            state.speechSynthesis.speak(utterance);
-            log(`Voice: ${text}`);
-        }
-
-        // Pathfinding Algorithm
-        function dijkstra(start, end) {
-            const pq = [{ cost: 0, node: start, path: [] }];
-            const visited = new Set();
-            
-            while (pq.length > 0) {
-                pq.sort((a, b) => a.cost - b.cost);
-                const { cost, node, path } = pq.shift();
-                
-                if (visited.has(node)) continue;
-                const newPath = [...path, node];
-                visited.add(node);
-                
-                if (node === end) {
-                    return { path: newPath, cost };
-                }
-                
-                for (const neighbor in graph[node]) {
-                    if (!visited.has(neighbor)) {
-                        pq.push({
-                            cost: cost + graph[node][neighbor],
-                            node: neighbor,
-                            path: newPath
-                        });
-                    }
-                }
-            }
-            
-            return { path: [], cost: Infinity };
-        }
-
-        // Direction Calculation
-        function getTurnDirection(p1, p2, p3) {
-            const v1 = [p2[0] - p1[0], p2[1] - p1[1]];
-            const v2 = [p3[0] - p2[0], p3[1] - p2[1]];
-            
-            const angle1 = Math.atan2(v1[1], v1[0]);
-            const angle2 = Math.atan2(v2[1], v2[0]);
-            
-            let angle = (angle2 - angle1) * 180 / Math.PI;
-            angle = (angle + 360) % 360;
-            
-            if (angle < 45 || angle > 315) return "Move straight";
-            if (angle >= 45 && angle < 135) return "Turn right";
-            if (angle >= 135 && angle < 225) return "Turn back";
-            return "Turn left";
-        }
-
-        function getInitialDirectionSimple(p1, p2) {
-            const dx = p2[0] - p1[0];
-            const dy = p2[1] - p1[1];
-            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-            angle = (angle + 360) % 360;
-            
-            if (angle >= 315 || angle < 45) return "Move straight";
-            if (angle >= 45 && angle < 135) return "Turn right";
-            if (angle >= 135 && angle < 225) return "Turn back";
-            return "Turn left";
-        }
-
-        // QR Code Detection Simulation
-        function detectQRCode() {
-            // In a real implementation, this would use a QR code library
-            // For simulation, we'll randomly detect QR codes
-            const simulatedDetection = Math.random() < 0.1; // 10% chance of detection
-            
-            if (simulatedDetection) {
-                const locations = Object.keys(nodeCoords);
-                const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-                
-                // Create or update QR frame
-                if (!state.qrFrame) {
-                    state.qrFrame = document.createElement('div');
-                    state.qrFrame.className = 'detection-frame';
-                    document.querySelector('.camera-container').appendChild(state.qrFrame);
-                }
-                
-                // Position the frame randomly on the video
-                const videoWidth = elements.cameraPreview.videoWidth || 640;
-                const videoHeight = elements.cameraPreview.videoHeight || 480;
-                const frameSize = Math.min(videoWidth, videoHeight) * 0.3;
-                
-                state.qrFrame.style.width = `${frameSize}px`;
-                state.qrFrame.style.height = `${frameSize}px`;
-                state.qrFrame.style.left = `${Math.random() * (videoWidth - frameSize)}px`;
-                state.qrFrame.style.top = `${Math.random() * (videoHeight - frameSize)}px`;
-                
-                return {
-                    found: true,
-                    decoded: randomLocation,
-                    color: elements.colorFilter.value,
-                    guidance: "OK – close enough!",
-                    bbox: {
-                        x: parseInt(state.qrFrame.style.left),
-                        y: parseInt(state.qrFrame.style.top),
-                        width: frameSize,
-                        height: frameSize
-                    }
-                };
-            } else if (state.qrFrame) {
-                // Remove the frame if no QR code is detected
-                state.qrFrame.remove();
-                state.qrFrame = null;
-            }
-            
-            return {
-                found: false,
-                decoded: null,
-                color: null,
-                guidance: "Looking...",
-                bbox: null
+      } catch(e) { 
+        console.warn('Color mask decode error', color, e); 
+      }
+    }
+    
+    // Method 3: OpenCV approach (most thorough)
+    if (cvReady) {
+      try {
+        const cvProcessed = detectWithOpenCV(imageData, color);
+        if (cvProcessed) {
+          const code = jsQR(cvProcessed.data, cvProcessed.width, cvProcessed.height, { 
+            inversionAttempts: 'attemptBoth' 
+          });
+          if (code && code.data) {
+            return { 
+              found: true, 
+              decoded: code.data.trim(), 
+              colorFound: color, 
+              method: 'OpenCV-HSV' 
             };
+          }
         }
-
-        // Obstacle Detection Simulation
-        function detectObstacle() {
-            // This is a simplified simulation of obstacle detection
-            const hasObstacle = Math.random() < 0.1; // 10% chance of obstacle
-            
-            if (hasObstacle) {
-                const distance = (Math.random() * 3).toFixed(1); // Random distance 0-3m
-                
-                // Create or update obstacle frame
-                if (!state.obstacleFrame) {
-                    state.obstacleFrame = document.createElement('div');
-                    state.obstacleFrame.className = 'obstacle-frame';
-                    document.querySelector('.camera-container').appendChild(state.obstacleFrame);
-                }
-                
-                // Position the frame at the bottom center (typical obstacle location)
-                const videoWidth = elements.cameraPreview.videoWidth || 640;
-                const videoHeight = elements.cameraPreview.videoHeight || 480;
-                const frameWidth = videoWidth * 0.6;
-                const frameHeight = videoHeight * 0.2;
-                
-                state.obstacleFrame.style.width = `${frameWidth}px`;
-                state.obstacleFrame.style.height = `${frameHeight}px`;
-                state.obstacleFrame.style.left = `${(videoWidth - frameWidth) / 2}px`;
-                state.obstacleFrame.style.top = `${videoHeight - frameHeight - 20}px`;
-                
-                return {
-                    found: true,
-                    distance: distance,
-                    bbox: {
-                        x: parseInt(state.obstacleFrame.style.left),
-                        y: parseInt(state.obstacleFrame.style.top),
-                        width: frameWidth,
-                        height: frameHeight
-                    }
-                };
-            } else if (state.obstacleFrame) {
-                // Remove the frame if no obstacle is detected
-                state.obstacleFrame.remove();
-                state.obstacleFrame = null;
-            }
-            
-            return {
-                found: false,
-                distance: null,
-                bbox: null
-            };
-        }
-
-        // Camera Management
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                });
-                
-                elements.cameraPreview.srcObject = stream;
-                state.mediaStream = stream;
-                
-                // Set up QR code detection interval
-                state.qrDetectionInterval = setInterval(() => {
-                    const result = detectQRCode();
-                    
-                    if (result.found && result.decoded) {
-                        handleQRDetection(result.decoded, result.color);
-                    }
-                    
-                    // Update status
-                    setStatus(`Color: ${result.color || 'N/A'} | ${result.guidance}`);
-                }, 1000);
-                
-                // Set up obstacle detection interval
-                state.obstacleDetectionInterval = setInterval(() => {
-                    const result = detectObstacle();
-                    
-                    if (result.found && result.distance <= 2.5) {
-                        const now = Date.now();
-                        if (now - state.lastObstacleAnnounce > 2000) {
-                            speak(`Obstacle ahead ${result.distance} meters. Please be careful.`, true);
-                            state.lastObstacleAnnounce = now;
-                        }
-                    }
-                }, 1000);
-                
-                log("Camera started");
-                setStatus("Scanning... rotate slowly to find QR");
-                speak("Starting scan. Rotate slowly to find colored QR codes.");
-                
-            } catch (error) {
-                log(`Camera error: ${error.message}`);
-                setStatus("Camera error");
-                speak("Unable to access camera. Please check permissions.");
-            }
-        }
-
-        function stopCamera() {
-            if (state.mediaStream) {
-                state.mediaStream.getTracks().forEach(track => track.stop());
-                state.mediaStream = null;
-            }
-            
-            if (state.qrDetectionInterval) {
-                clearInterval(state.qrDetectionInterval);
-                state.qrDetectionInterval = null;
-            }
-            
-            if (state.obstacleDetectionInterval) {
-                clearInterval(state.obstacleDetectionInterval);
-                state.obstacleDetectionInterval = null;
-            }
-            
-            // Remove detection frames
-            if (state.qrFrame) {
-                state.qrFrame.remove();
-                state.qrFrame = null;
-            }
-            
-            if (state.obstacleFrame) {
-                state.obstacleFrame.remove();
-                state.obstacleFrame = null;
-            }
-            
-            elements.cameraPreview.srcObject = null;
-            log("Camera stopped");
-            setStatus("Scanner stopped");
-        }
-
-        // QR Detection Handler
-        function handleQRDetection(decoded, color) {
-            const decodedClean = decoded.trim();
-            
-            // If we're navigating and this matches the target
-            if (state.currentNavigationTarget) {
-                if (decodedClean.toLowerCase() === state.currentNavigationTarget.toLowerCase()) {
-                    log(`Arrival QR scanned for destination: ${decodedClean}`);
-                    speak(`You have arrived at ${decodedClean}.`, true);
-                    state.currentLocation = decodedClean;
-                    state.currentNavigationTarget = null;
-                    stopCamera();
-                    alert(`Arrival confirmed: ${decodedClean}`);
-                    return;
-                } else if (decodedClean !== state.currentLocation) {
-                    // Interim QR code detected during navigation
-                    state.currentLocation = decodedClean;
-                    state.detectedColor = color;
-                    log(`Scanned interim QR: ${decodedClean} [${color}] (still navigating)`);
-                    speak(`Scanned ${decodedClean}.`);
-                }
-                return;
-            }
-            
-            // Not navigating - update current location
-            if (decodedClean !== state.currentLocation) {
-                state.currentLocation = decodedClean;
-                state.detectedColor = color;
-                log(`Detected location: ${decodedClean} [${color}]`);
-                speak(`Detected location ${decodedClean}.`);
-                setStatus(`Detected: ${decodedClean} (${color})`);
-                
-                // Ask for destination
-                setTimeout(() => {
-                    askDestinationViaVoice();
-                }, 700);
-            }
-        }
-
-        // Navigation Functions
-        function startNavigation(destination) {
-            if (!state.currentLocation) {
-                alert("No current location detected. First scan a QR code.");
-                return;
-            }
-            
-            log(`Calculating route from ${state.currentLocation} to ${destination}...`);
-            const { path, cost } = dijkstra(state.currentLocation, destination);
-            
-            if (path.length === 0 || cost === Infinity) {
-                const msg = "No path found to destination.";
-                log(msg);
-                speak(msg);
-                alert(msg);
-                return;
-            }
-            
-            state.navigationPath = path;
-            state.navigationIndex = 0;
-            state.currentNavigationTarget = destination;
-            
-            showNavigationModal(path, cost);
-            
-            const summaryText = `Navigation started. Total distance ${cost.toFixed(2)} meters.`;
-            speak(summaryText);
-            
-            // Ensure camera is running for navigation
-            if (!state.isScanning) {
-                startCamera();
-            }
-        }
-
-        function showNavigationModal(path, totalCost) {
-            elements.routeSummary.innerHTML = `
-                <p><strong>Route:</strong> ${path.join(' → ')}</p>
-                <p><strong>Total distance:</strong> ${totalCost.toFixed(2)} meters | <strong>Waypoints:</strong> ${path.length}</p>
-            `;
-            
-            elements.navigationModal.style.display = 'flex';
-            
-            showCurrentStep();
-        }
-
-        function showCurrentStep() {
-            if (state.navigationIndex >= state.navigationPath.length - 1) {
-                const finalText = `Proceed to scan the QR code at the destination: ${state.navigationPath[state.navigationPath.length - 1]} to confirm arrival.`;
-                elements.currentInstruction.textContent = finalText;
-                elements.currentDistance.textContent = "";
-                elements.nextStepBtn.textContent = "Finish";
-                speak(finalText);
-                log("Please scan the QR at the final destination to confirm arrival.");
-                return;
-            }
-            
-            const current = state.navigationPath[state.navigationIndex];
-            const nextNode = state.navigationPath[state.navigationIndex + 1];
-            const distance = graph[current][nextNode];
-            
-            let instruction;
-            if (state.navigationIndex === 0) {
-                instruction = `${getInitialDirectionSimple(nodeCoords[current], nodeCoords[nextNode])} towards ${nextNode}.`;
-            } else {
-                const prevNode = state.navigationPath[state.navigationIndex - 1];
-                instruction = `At ${current}: ${getTurnDirection(nodeCoords[prevNode], nodeCoords[current], nodeCoords[nextNode])} towards ${nextNode}.`;
-            }
-            
-            elements.currentInstruction.textContent = instruction;
-            elements.currentDistance.textContent = `Distance: ${distance.toFixed(2)} meters`;
-            elements.nextStepBtn.disabled = true;
-            
-            speak(`${instruction} Distance ${distance.toFixed(2)} meters.`);
-            
-            setTimeout(() => {
-                elements.nextStepBtn.disabled = false;
-            }, 1000);
-        }
-
-        function nextNavigationStep() {
-            if (state.navigationIndex >= state.navigationPath.length - 1) {
-                closeNavigationModal();
-                return;
-            }
-            
-            state.navigationIndex++;
-            showCurrentStep();
-        }
-
-        function closeNavigationModal() {
-            elements.navigationModal.style.display = 'none';
-            state.currentNavigationTarget = null;
-        }
-
-        // Destination Selection
-        function showDestinationModal() {
-            if (!state.currentLocation) {
-                alert("No current location detected. First scan a QR code.");
-                return;
-            }
-            
-            elements.currentLocationDisplay.textContent = `Current location: ${state.currentLocation}`;
-            elements.destinationList.innerHTML = '';
-            
-            const destinations = Object.keys(nodeCoords)
-                .filter(n => n !== state.currentLocation)
-                .map(destination => {
-                    const item = document.createElement('div');
-                    item.className = 'destination-item';
-                    item.textContent = destination;
-                    item.addEventListener('click', () => {
-                        // Remove active class from all items
-                        document.querySelectorAll('.destination-item').forEach(el => {
-                            el.classList.remove('active');
-                        });
-                        // Add active class to clicked item
-                        item.classList.add('active');
-                    });
-                    return item;
-                });
-            
-            destinations.forEach(item => {
-                elements.destinationList.appendChild(item);
-            });
-            
-            elements.destinationModal.style.display = 'flex';
-        }
-
-        function closeDestinationModal() {
-            elements.destinationModal.style.display = 'none';
-        }
-
-        function getSelectedDestination() {
-            const activeItem = elements.destinationList.querySelector('.active');
-            return activeItem ? activeItem.textContent : null;
-        }
-
-        // Voice Recognition
-        function setupVoiceRecognition() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                log("Speech recognition not available in this browser.");
-                speak("Speech recognition not available. Please use manual destination entry.");
-                return false;
-            }
-            
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            state.recognition = new SpeechRecognition();
-            state.recognition.continuous = false;
-            state.recognition.interimResults = false;
-            state.recognition.maxAlternatives = 3;
-            
-            return true;
-        }
-
-        function askDestinationViaVoice() {
-            if (!state.currentLocation) {
-                alert("Please scan your current location QR first.");
-                return;
-            }
-            
-            if (!setupVoiceRecognition()) {
-                showDestinationModal();
-                return;
-            }
-            
-            elements.voiceListeningModal.style.display = 'flex';
-            elements.listeningStatus.textContent = "Press 'Start Listening' and speak your destination";
-            elements.listeningStatus.classList.remove('pulse');
-        }
-
-        function startListening() {
-            if (!state.recognition) {
-                setupVoiceRecognition();
-            }
-            
-            elements.listeningStatus.textContent = "Listening... Please speak your destination";
-            elements.listeningStatus.classList.add('pulse');
-            
-            state.recognition.onresult = (event) => {
-                const speechResult = event.results[0][0].transcript;
-                elements.listeningStatus.textContent = `Heard: ${speechResult}`;
-                log(`Recognized speech: ${speechResult}`);
-                
-                processVoiceDestination(speechResult);
-            };
-            
-            state.recognition.onerror = (event) => {
-                log(`Speech recognition error: ${event.error}`);
-                elements.listeningStatus.textContent = `Error: ${event.error}. Please try again.`;
-                speak("Sorry, I didn't catch that. Please try again.");
-                
-                setTimeout(() => {
-                    state.recognition.start();
-                }, 2000);
-            };
-            
-            state.recognition.onend = () => {
-                elements.listeningStatus.textContent = "Listening ended. Press 'Start Listening' to try again.";
-                elements.listeningStatus.classList.remove('pulse');
-            };
-            
-            state.recognition.start();
-        }
-
-        function processVoiceDestination(spokenText) {
-            const candidates = Object.keys(nodeCoords);
-            let matches = [];
-            
-            // Simple matching
-            spokenText = spokenText.toLowerCase();
-            
-            for (const candidate of candidates) {
-                const candidateLower = candidate.toLowerCase();
-                
-                // Exact match
-                if (candidateLower === spokenText) {
-                    matches = [candidate];
-                    break;
-                }
-                
-                // Partial match
-                if (candidateLower.includes(spokenText) || spokenText.includes(candidateLower)) {
-                    matches.push(candidate);
-                }
-            }
-            
-            // If no matches found, try fuzzy matching
-            if (matches.length === 0) {
-                for (const candidate of candidates) {
-                    const candidateLower = candidate.toLowerCase();
-                    // Simple similarity check
-                    if (calculateSimilarity(candidateLower, spokenText) > 0.5) {
-                        matches.push(candidate);
-                    }
-                }
-            }
-            
-            if (matches.length === 0) {
-                elements.listeningStatus.textContent = "Destination not found. Please try again.";
-                speak("Destination not found. Please say again.");
-                
-                setTimeout(() => {
-                    state.recognition.start();
-                }, 2000);
-                return;
-            }
-            
-            const bestMatch = matches[0];
-            elements.listeningStatus.textContent = `Did you mean ${bestMatch}?`;
-            speak(`Did you mean ${bestMatch}? Please say yes or no.`);
-            
-            // Set up confirmation listener
-            const originalOnResult = state.recognition.onresult;
-            state.recognition.onresult = (event) => {
-                const confirmation = event.results[0][0].transcript.toLowerCase();
-                log(`Confirmation speech: ${confirmation}`);
-                
-                if (confirmation.includes('yes') || confirmation.includes('yeah') || confirmation.includes('correct')) {
-                    closeVoiceModal();
-                    startNavigation(bestMatch);
-                } else {
-                    elements.listeningStatus.textContent = "Okay, please say the destination again.";
-                    speak("Okay, please say the destination again.");
-                    
-                    // Reset to original listener
-                    state.recognition.onresult = originalOnResult;
-                    
-                    setTimeout(() => {
-                        state.recognition.start();
-                    }, 2000);
-                }
-            };
-            
-            state.recognition.start();
-        }
-
-        function calculateSimilarity(str1, str2) {
-            // Simple similarity calculation
-            const longer = str1.length > str2.length ? str1 : str2;
-            const shorter = str1.length > str2.length ? str2 : str1;
-            
-            if (longer.length === 0) return 1.0;
-            
-            return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length);
-        }
-
-        function editDistance(s1, s2) {
-            // Levenshtein distance
-            s1 = s1.toLowerCase();
-            s2 = s2.toLowerCase();
-            
-            const costs = [];
-            for (let i = 0; i <= s1.length; i++) {
-                let lastValue = i;
-                for (let j = 0; j <= s2.length; j++) {
-                    if (i === 0) {
-                        costs[j] = j;
-                    } else if (j > 0) {
-                        let newValue = costs[j - 1];
-                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                        }
-                        costs[j - 1] = lastValue;
-                        lastValue = newValue;
-                    }
-                }
-                if (i > 0) costs[s2.length] = lastValue;
-            }
-            return costs[s2.length];
-        }
-
-        function closeVoiceModal() {
-            if (state.recognition) {
-                state.recognition.stop();
-            }
-            elements.voiceListeningModal.style.display = 'none';
-        }
-
-        // Map Display
-        function showMapPreview() {
-            alert("Map preview would be shown here. In a full implementation, this would display the indoor map with nodes and paths.");
-        }
-
-        // Event Listeners
-        elements.startScanBtn.addEventListener('click', () => {
-            state.isScanning = true;
-            startCamera();
+      } catch(e) {
+        console.warn('OpenCV approach failed for', color, e);
+      }
+    }
+    
+    // Method 4: For blue, try with contrast enhancement
+    if (color === 'blue') {
+      try {
+        const enhanced = enhanceBlueContrast(imageData);
+        const code = jsQR(enhanced.data, enhanced.width, enhanced.height, { 
+          inversionAttempts: 'attemptBoth' 
         });
-
-        elements.stopScanBtn.addEventListener('click', () => {
-            state.isScanning = false;
-            stopCamera();
-        });
-
-        elements.showMapBtn.addEventListener('click', showMapPreview);
-
-        elements.voiceDestinationBtn.addEventListener('click', askDestinationViaVoice);
-
-        elements.refreshMicsBtn.addEventListener('click', () => {
-            log("Microphones refreshed");
-            speak("Microphones refreshed");
-        });
-
-        elements.nextStepBtn.addEventListener('click', nextNavigationStep);
-
-        elements.cancelNavigationBtn.addEventListener('click', closeNavigationModal);
-
-        elements.startNavigationBtn.addEventListener('click', () => {
-            const destination = getSelectedDestination();
-            if (destination) {
-                closeDestinationModal();
-                startNavigation(destination);
-            } else {
-                alert("Please select a destination.");
-            }
-        });
-
-        elements.cancelDestinationBtn.addEventListener('click', closeDestinationModal);
-
-        elements.startListeningBtn.addEventListener('click', startListening);
-
-        elements.cancelVoiceBtn.addEventListener('click', closeVoiceModal);
-
-        // Initialization
-        function init() {
-            log("App started. Click Start Scan to find colored QR codes.");
-            speak("Application started.");
-            
-            // Check for speech recognition support
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                log("Speech recognition available.");
-                speak("Speech recognition available.");
-            } else {
-                log("Speech recognition not available.");
-                speak("Speech recognition not available. Please use manual destination entry.");
-            }
+        if (code && code.data) {
+          return { 
+            found: true, 
+            decoded: code.data.trim(), 
+            colorFound: color, 
+            method: 'Blue-Enhanced' 
+          };
         }
+      } catch(e) {
+        console.warn('Blue enhancement failed', e);
+      }
+    }
+  }
+  
+  return { found: false };
+}
 
-        // Start the application
-        init();
-    </script>
+// Special blue enhancement function
+function enhanceBlueContrast(imageData) {
+  const data = new Uint8ClampedArray(imageData.data);
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Aggressive blue enhancement
+    let blueIntensity = 0;
+    
+    if (b > r && b > g) {
+      // Pure blue dominant
+      blueIntensity = Math.min(255, b * 2);
+    } else if (b > 60 && (b - r > 10 || b - g > 10)) {
+      // Moderate blue
+      blueIntensity = Math.min(255, b * 1.5);
+    } else if (b > 40 && r < 100 && g < 100) {
+      // Dark blue
+      blueIntensity = Math.min(255, b * 1.8);
+    } else {
+      // Not blue, reduce to create more contrast
+      blueIntensity = Math.max(0, Math.min(r, g, b) * 0.3);
+    }
+    
+    data[i] = blueIntensity;
+    data[i + 1] = blueIntensity;
+    data[i + 2] = blueIntensity;
+  }
+  
+  return new ImageData(data, imageData.width, imageData.height);
+}
+
+/* ======= Update progress display ======= */
+function updateProgressDisplay() {
+  const colors = ['red', 'green', 'blue'];
+  colors.forEach(color => {
+    const element = document.getElementById(`progress${color.charAt(0).toUpperCase() + color.slice(1)}`);
+    if (foundResults.has(color)) {
+      element.className = 'found-qr';
+      element.textContent = `${color === 'red' ? '🔴' : color === 'green' ? '🟢' : '🔵'} ${color.charAt(0).toUpperCase() + color.slice(1)} QR: ✅ ${foundResults.get(color).decoded}`;
+    } else {
+      element.className = 'pending-qr';
+      element.textContent = `${color === 'red' ? '🔴' : color === 'green' ? '🟢' : '🔵'} ${color.charAt(0).toUpperCase() + color.slice(1)} QR: Scanning...`;
+    }
+  });
+}
+
+/* ======= Obstacle detection ======= */
+function detect_obstacle_js(imageData) {
+  const W = imageData.width, H = imageData.height;
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  const offCtx = off.getContext('2d');
+  offCtx.putImageData(imageData, 0, 0);
+  const gray = offCtx.getImageData(0, Math.floor(H*0.45), W, Math.floor(H*0.55));
+  let maxArea = 0;
+  const block = 16;
+  for (let by=0; by<gray.height; by+=block) {
+    for (let bx=0; bx<gray.width; bx+=block) {
+      let darkCount = 0, total = 0;
+      for (let y=by; y<by+block && y<gray.height; y++) {
+        for (let x=bx; x<bx+block && x<gray.width; x++) {
+          const i = (y*gray.width + x)*4;
+          const r = gray.data[i], g = gray.data[i+1], b = gray.data[i+2];
+          const lum = 0.299*r + 0.587*g + 0.114*b;
+          if (lum < 70) darkCount++;
+          total++;
+        }
+      }
+      const areaEstimate = (darkCount/total) * (block*block);
+      if (areaEstimate > maxArea) maxArea = areaEstimate;
+    }
+  }
+  if (maxArea > 80) {
+    const approx_distance = Math.max(0.2, 5.0 * (20000.0 / (maxArea*100.0 + 1.0)));
+    return {found:true, dist:approx_distance};
+  }
+  return {found:false, dist:null};
+}
+
+/* ======= Camera functions ======= */
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }, 
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    canvasDisp.width = video.videoWidth; 
+    canvasDisp.height = video.videoHeight;
+    preview.width = Math.min(820, video.videoWidth); 
+    preview.height = Math.min(360, video.videoHeight);
+    scanBox.x = Math.floor((canvasDisp.width - SCAN_SIZE)/2);
+    scanBox.y = Math.floor((canvasDisp.height - SCAN_SIZE)/2);
+    scanStartTime = Date.now();
+    foundResults.clear();
+    actionsTriggered = false;
+    scannerRunning = true;
+    log("Camera started: " + video.videoWidth + "x" + video.videoHeight);
+    overlayText.textContent = "Scanning for 3 color QR codes...";
+    updateProgressDisplay();
+    processFrame();
+    return true;
+  } catch(e) {
+    overlayText.textContent = "Camera access denied or unavailable.";
+    log("Camera start error: " + e);
+    return false;
+  }
+}
+
+function stopCamera() {
+  if (stream) stream.getTracks().forEach(t=>t.stop());
+  if (animationFrameId) { 
+    cancelAnimationFrame(animationFrameId); 
+    animationFrameId = null; 
+  }
+  scannerRunning = false;
+  overlayText.textContent = "Scanner stopped.";
+  log("Camera stopped.");
+}
+
+/* ======= Main processing loop - optimized for speed ======= */
+let qrDecoderBusy = false;
+let frameSkipCounter = 0;
+
+function processFrame() {
+  if (!scannerRunning) return;
+  animationFrameId = requestAnimationFrame(processFrame);
+  if (!video || video.readyState < 2) return;
+  
+  // Skip frames for better performance (process every 3rd frame)
+  frameSkipCounter++;
+  if (frameSkipCounter % 3 !== 0 && foundResults.size < 3) return;
+  
+  ctxDisp.drawImage(video, 0, 0, canvasDisp.width, canvasDisp.height);
+  
+  // Update preview less frequently
+  if (frameSkipCounter % 5 === 0) {
+    try {
+      const tmp = document.createElement('canvas');
+      tmp.width = canvasDisp.width; 
+      tmp.height = canvasDisp.height;
+      const tmpCtx = tmp.getContext('2d');
+      tmpCtx.drawImage(canvasDisp, 0, 0);
+      
+      // Draw scan box on preview
+      tmpCtx.strokeStyle = '#00ff00';
+      tmpCtx.lineWidth = 2;
+      tmpCtx.strokeRect(scanBox.x, scanBox.y, scanBox.size, scanBox.size);
+      
+      preview.src = tmp.toDataURL('image/png');
+    } catch(e) {}
+  }
+  
+  if (qrDecoderBusy) return;
+  qrDecoderBusy = true;
+  
+  // Use setTimeout to prevent blocking
+  setTimeout(() => {
+    try {
+      const imageData = ctxDisp.getImageData(scanBox.x, scanBox.y, scanBox.size, scanBox.size);
+      const targetFilter = (colorFilterEl.value === "Any") ? null : colorFilterEl.value.toLowerCase();
+      
+      // Process colors in priority order (blue first since it's hardest to detect)
+      const colorOrder = targetFilter ? [targetFilter] : ['blue', 'red', 'green'];
+      
+      for (const color of colorOrder) {
+        if (foundResults.has(color)) continue;
+        
+        const detection = detect_colored_qr_in_frame_js(imageData, color);
+        
+        if (detection.found && detection.decoded) {
+          const decodedClean = detection.decoded.trim();
+          
+          foundResults.set(color, { 
+            decoded: decodedClean, 
+            method: detection.method || 'unknown' 
+          });
+          log(`✅ Decoded ${color.toUpperCase()}: ${decodedClean} (${detection.method})`);
+          TTS.speak(`${color} QR found`);
+          updateProgressDisplay();
+          
+          // Break after finding one QR per frame for better performance
+          break;
+        }
+      }
+      
+      // Check if all three colors found
+      const allColors = ['red', 'green', 'blue'];
+      const foundColors = Array.from(foundResults.keys());
+      if (!actionsTriggered && allColors.every(c => foundColors.includes(c))) {
+        triggerAllActionsOnce();
+      }
+      
+      // Update status
+      const scanTime = (Date.now() - scanStartTime) / 1000;
+      if (foundColors.length === 0) {
+        overlayText.textContent = `Scanning for QR codes... (${scanTime.toFixed(1)}s)`;
+      } else if (foundColors.length < 3) {
+        overlayText.textContent = `Found ${foundColors.length}/3 QR codes - keep scanning...`;
+      } else {
+        overlayText.textContent = `All 3 QR codes found! Processing...`;
+      }
+      
+      // Obstacle detection (less frequent)
+      if (frameSkipCounter % 10 === 0) {
+        const fullImageData = ctxDisp.getImageData(0, 0, canvasDisp.width, canvasDisp.height);
+        latestObstacle = detect_obstacle_js(fullImageData);
+        
+        if (latestObstacle && latestObstacle.found && latestObstacle.dist !== null && latestObstacle.dist <= 2.5) {
+          overlayText.textContent = `⚠️ Obstacle ahead ~${latestObstacle.dist.toFixed(1)}m — be careful`;
+        }
+      }
+      
+    } catch(e) { 
+      console.error("Frame processing error:", e); 
+    } finally {
+      qrDecoderBusy = false;
+    }
+  }, 50); // Small delay to prevent UI blocking
+}
+
+/* ======= Debug and utility functions ======= */
+function debugQRDetection() {
+  console.log("=== QR Detection Debug ===");
+  console.log("jsQR available:", typeof jsQR !== 'undefined');
+  console.log("OpenCV ready:", cvReady);
+  console.log("Video dimensions:", video.videoWidth, video.videoHeight);
+  console.log("Canvas dimensions:", canvasDisp.width, canvasDisp.height);
+  console.log("Scan box:", scanBox);
+  console.log("Found results:", Array.from(foundResults.entries()));
+  console.log("Scan time:", (Date.now() - scanStartTime) / 1000, "seconds");
+  
+  if (video.videoWidth > 0) {
+    let imageData = ctxDisp.getImageData(scanBox.x, scanBox.y, scanBox.size, scanBox.size);
+    console.log("Image data:", imageData.width, imageData.height, "pixels");
+    
+    const testCode = jsQR(imageData.data, imageData.width, imageData.height);
+    console.log("Basic QR test result:", testCode ? testCode.data : "No QR found");
+    
+    // Test blue detection specifically
+    const blueEnhanced = enhanceBlueContrast(imageData);
+    const blueCode = jsQR(blueEnhanced.data, blueEnhanced.width, blueEnhanced.height);
+    console.log("Blue enhanced test:", blueCode ? blueCode.data : "No blue QR found");
+  }
+}
+
+/* ======= Performance optimized restart function ======= */
+async function restartScanning() {
+  console.log("🔄 Restarting scanning...");
+  
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  
+  // Reset state
+  foundResults.clear();
+  actionsTriggered = false;
+  scanStartTime = Date.now();
+  frameSkipCounter = 0;
+  qrDecoderBusy = false;
+  
+  try {
+    await startCamera();
+    log("🔄 Scanning restarted successfully");
+  } catch (error) {
+    overlayText.textContent = "❌ Camera restart failed";
+    console.error("Camera restart error:", error);
+  }
+ctxDisp.getImageData(0, 0, canvasDisp.width, canvasDisp.height);
+latestObstacle = detect_obstacle_js(fullImageData);
+
+if (latestObstacle && latestObstacle.found && latestObstacle.dist !== null && latestObstacle.dist <= 2.5) {
+  overlayText.textContent = `⚠️ Obstacle ahead ~${latestObstacle.dist.toFixed(1)}m — be careful`;
+}
+}
+
+/* ======= Trigger all actions after 3 QRs found ======= */
+function triggerAllActionsOnce() {
+  if (actionsTriggered) return;
+  actionsTriggered = true;
+  
+  log("🎉 All three color QR codes detected!");
+  TTS.speak("All QR codes detected. Processing information.", true);
+  
+  const greenQR = foundResults.get('green')?.decoded || '';
+  const blueQR = foundResults.get('blue')?.decoded || '';  
+  const redQR = foundResults.get('red')?.decoded || '';
+  
+  // Stop scanning since we have all QR codes
+  stopCamera();
+  
+  // Sequential announcements with delays
+  setTimeout(() => {
+    // 1. Green QR → show map
+    log("📍 Map information: " + greenQR);
+    TTS.speak("Map displayed. " + greenQR);
+    drawMap();
+    mapModal.style.display = 'flex';
+  }, 500);
+  
+  setTimeout(() => {
+    // 2. Blue QR → announce accessibility info
+    log("♿ Accessibility info: " + blueQR);
+    TTS.speak("Accessibility information: " + blueQR);
+    overlayText.textContent = `Accessibility: ${blueQR}`;
+  }, 2000);
+  
+  setTimeout(() => {
+    // 3. Red QR → announce current location and start navigation
+    currentLocation = redQR;
+    log("📍 Current location: " + redQR);
+    TTS.speak("Your current location is: " + redQR);
+    overlayText.textContent = `Current location: ${redQR}`;
+  }, 4000);
+  
+  setTimeout(() => {
+    // 4. Prompt for destination
+    if (SR_AVAILABLE) {
+      ask_destination_via_voice();
+    } else {
+      show_destination_modal();
+    }
+  }, 6000);
+}
+
+/* ======= Navigation functions ======= */
+function show_destination_modal() {
+  if (!currentLocation) {
+    alert("No current location detected. Please scan QR codes first.");
+    return;
+  }
+  
+  const candidates = Object.keys(node_coords).filter(n => n !== currentLocation);
+  const dest = prompt(`Current location: ${currentLocation}\n\nWhere would you like to go?\n\nAvailable destinations:\n${candidates.join('\n')}\n\nType your destination:`);
+  
+  if (dest) {
+    // Find best match
+    const bestMatch = findBestLocationMatch(dest, candidates);
+    if (bestMatch) {
+      start_navigation(bestMatch);
+    } else {
+      alert("Destination not found. Please try again with exact location name.");
+      show_destination_modal();
+    }
+  }
+}
+
+function findBestLocationMatch(input, candidates) {
+  const inputLower = input.toLowerCase().trim();
+  
+  // Exact match
+  let match = candidates.find(c => c.toLowerCase() === inputLower);
+  if (match) return match;
+  
+  // Contains match
+  match = candidates.find(c => c.toLowerCase().includes(inputLower));
+  if (match) return match;
+  
+  // Word contains match
+  match = candidates.find(c => 
+    c.toLowerCase().split(' ').some(word => 
+      inputLower.includes(word) || word.includes(inputLower)
+    )
+  );
+  if (match) return match;
+  
+  return null;
+}
+
+function ask_destination_via_voice() {
+  if (!currentLocation) { 
+    alert("Please scan your current location first."); 
+    return; 
+  }
+  if (!SR_AVAILABLE) { 
+    log("Speech recognition not available in this browser."); 
+    show_destination_modal(); 
+    return; 
+  }
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { 
+    log("No SpeechRecognition implementation."); 
+    show_destination_modal(); 
+    return; 
+  }
+  
+  const r = new SpeechRecognition();
+  r.lang = 'en-US';
+  r.interimResults = false;
+  r.maxAlternatives = 3;
+  
+  r.onstart = () => {
+    log("🎤 Listening for destination...");
+    TTS.speak("Where would you like to go? Please say your destination now.");
+    overlayText.textContent = "🎤 Listening... Please say your destination";
+  };
+  
+  r.onresult = (evt) => {
+    const text = evt.results[0][0].transcript;
+    log("🎤 Recognized speech: " + text);
+    
+    const candidates = Object.keys(node_coords).filter(n => n !== currentLocation);
+    const bestMatch = findBestLocationMatch(text, candidates);
+    
+    if (bestMatch) {
+      TTS.speak(`Did you mean ${bestMatch}? Please say yes or no.`);
+      overlayText.textContent = `Confirm destination: ${bestMatch}`;
+      
+      const r2 = new SpeechRecognition();
+      r2.lang = 'en-US';
+      r2.onresult = (e2) => {
+        const confirm = e2.results[0][0].transcript.toLowerCase();
+        log("🎤 Confirmation: " + confirm);
+        
+        if (confirm.includes('yes') || confirm.includes('yeah') || confirm.includes('yup') || confirm.includes('correct')) {
+          start_navigation(bestMatch);
+        } else {
+          TTS.speak("Okay, let me try again.");
+          setTimeout(() => ask_destination_via_voice(), 1000);
+        }
+      };
+      r2.onerror = () => { 
+        log("Confirmation error, switching to manual input.");
+        show_destination_modal(); 
+      };
+      r2.start();
+    } else {
+      TTS.speak("I couldn't find that destination. Let me try again.");
+      setTimeout(() => ask_destination_via_voice(), 1000);
+    }
+  };
+  
+  r.onerror = (e) => {
+    log("Speech recognition error: " + e.error);
+    show_destination_modal();
+  };
+  
+  r.start();
+}
+
+function start_navigation(destination) {
+  if (!currentLocation) { 
+    alert("No current location. Please scan QR codes first."); 
+    return; 
+  }
+  if (!destination) { 
+    alert("No destination selected."); 
+    return; 
+  }
+  
+  const res = dijkstra(graph, currentLocation, destination);
+  if (!res.path.length || res.cost === Infinity) {
+    log("❌ No path found to destination.");
+    TTS.speak("Sorry, no path found to that destination.");
+    alert("Routing error: no path found.");
+    return;
+  }
+  
+  log(`🗺️ Route: ${res.path.join(' → ')} | distance ${res.cost.toFixed(2)}m`);
+  TTS.speak(`Navigation started to ${destination}. Total distance ${res.cost.toFixed(0)} meters.`);
+  overlayText.textContent = `Navigating to: ${destination} (${res.cost.toFixed(0)}m)`;
+  
+  navigationDialog(res.path, res.cost);
+}
+
+function navigationDialog(path, total_cost) {
+  let idx = 0;
+  currentNavigationTarget = path[path.length - 1];
+  
+  function showStep() {
+    if (idx >= path.length - 1) {
+      const finalText = `You are approaching your destination: ${path[path.length - 1]}. Look for the QR code to confirm your arrival.`;
+      TTS.speak(finalText);
+      overlayText.textContent = `Final step: Look for ${path[path.length - 1]} QR code`;
+      
+      // Restart camera for arrival confirmation
+      setTimeout(() => {
+        if (!scannerRunning) {
+          log("🔄 Restarting camera for arrival confirmation...");
+          startBtn.click();
+        }
+      }, 2000);
+      return;
+    }
+    
+    const current = path[idx];
+    const next = path[idx + 1];
+    let instruction;
+    
+    if (idx === 0) {
+      instruction = `${get_initial_direction_simple(node_coords[current], node_coords[next])} towards ${next}.`;
+    } else {
+      const prev = path[idx - 1];
+      instruction = `At ${current}: ${get_turn_direction(node_coords[prev], node_coords[current], node_coords[next])} towards ${next}.`;
+    }
+    
+    const distance = (graph[current] && graph[current][next]) ? graph[current][next] : 0;
+    const spoken = `${instruction} Distance ${distance.toFixed(0)} meters.`;
+    
+    TTS.speak(spoken);
+    log(`📍 Step ${idx + 1}: ${spoken}`);
+    overlayText.textContent = `Step ${idx + 1}: ${instruction}`;
+    
+    if (confirm(spoken + "\n\nPress OK for next step, Cancel to stop navigation.")) {
+      idx++;
+      setTimeout(showStep, 500); // Small delay between steps
+    } else {
+      TTS.speak("Navigation cancelled.", true);
+      currentNavigationTarget = null;
+      overlayText.textContent = "Navigation cancelled";
+    }
+  }
+  
+  showStep();
+}
+
+/* ======= Enhanced arrival detection ======= */
+function handleDecoded(decoded, color) {
+  const decodedClean = decoded.trim();
+  
+  if (currentNavigationTarget) {
+    const target = (currentNavigationTarget || "").toLowerCase();
+    const detected = decodedClean.toLowerCase();
+    
+    if (detected === target || detected.includes(target) || target.includes(detected)) {
+      log(`🎉 Arrival confirmed: ${decodedClean}`);
+      TTS.speak(`You have successfully arrived at ${decodedClean}`, true);
+      currentLocation = decodedClean;
+      currentNavigationTarget = null;
+      stopCamera();
+      overlayText.textContent = `✅ Arrived: ${decodedClean}`;
+      
+      setTimeout(() => {
+        alert(`🎉 Arrival Confirmed!\n\nYou have reached: ${decodedClean}`);
+      }, 1000);
+      return;
+    } else {
+      // Update current location during navigation
+      if (decodedClean !== currentLocation) {
+        currentLocation = decodedClean;
+        log(`📍 Passed checkpoint: ${decodedClean} [${color}]`);
+        TTS.speak(`Passed ${decodedClean}`);
+        overlayText.textContent = `Checkpoint: ${decodedClean}`;
+      }
+      return;
+    }
+  }
+  
+  // Not currently navigating - this is for initial location detection
+  if (decodedClean !== currentLocation) {
+    currentLocation = decodedClean;
+    log(`📍 Current location updated: ${decodedClean} [${color}]`);
+    TTS.speak(`Current location: ${decodedClean}`);
+    overlayText.textContent = `Location: ${decodedClean}`;
+    
+    setTimeout(() => {
+      if (SR_AVAILABLE) {
+        ask_destination_via_voice();
+      } else {
+        show_destination_modal();
+      }
+    }, 1000);
+  }
+}
+
+/* ======= Map drawing ======= */
+function drawMap() {
+  const ctx = mapCanvas.getContext('2d');
+  ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+  
+  const cw = mapCanvas.width, ch = mapCanvas.height, margin = 40;
+  const xs = Object.values(node_coords).map(p => p[0]);
+  const ys = Object.values(node_coords).map(p => p[1]);
+  const minx = Math.min(...xs), maxx = Math.max(...xs);
+  const miny = Math.min(...ys), maxy = Math.max(...ys);
+  
+  const project = (p) => {
+    const sx = (p[0] - minx) / (maxx - minx || 1);
+    const sy = (p[1] - miny) / (maxy - miny || 1);
+    return [
+      margin + Math.floor(sx * (cw - margin * 2)),
+      margin + Math.floor(sy * (ch - margin * 2))
+    ];
+  };
+  
+  // Draw connections
+  ctx.strokeStyle = "#ddd";
+  ctx.lineWidth = 1;
+  for (const a in graph) {
+    for (const b in graph[a]) {
+      if (node_coords[a] && node_coords[b]) {
+        const pa = project(node_coords[a]);
+        const pb = project(node_coords[b]);
+        ctx.beginPath();
+        ctx.moveTo(pa[0], pa[1]);
+        ctx.lineTo(pb[0], pb[1]);
+        ctx.stroke();
+      }
+    }
+  }
+  
+  // Draw nodes
+  ctx.fillStyle = "#333";
+  ctx.font = "12px Arial";
+  for (const name in node_coords) {
+    const p = project(node_coords[name]);
+    
+    // Highlight current location
+    if (name === currentLocation) {
+      ctx.fillStyle = "#ff4444";
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+    } else {
+      ctx.fillStyle = "#666";
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#333";
+    }
+    
+    // Draw label
+    const metrics = ctx.measureText(name);
+    const textX = p[0] + 10;
+    const textY = p[1] + 4;
+    
+    // Background for text
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.fillRect(textX - 2, textY - 10, metrics.width + 4, 14);
+    
+    // Text
+    ctx.fillStyle = "#333";
+    ctx.fillText(name, textX, textY);
+  }
+}
+
+/* ======= UI Event Handlers ======= */
+startBtn.onclick = async () => {
+  if (scannerRunning) { 
+    log("Scanner already running."); 
+    return; 
+  }
+  const ok = await startCamera();
+  if (!ok) return;
+};
+
+stopBtn.onclick = () => { 
+  stopCamera(); 
+};
+
+restartBtn.onclick = () => {
+  stopCamera();
+  foundResults.clear();
+  actionsTriggered = false;
+  scanStartTime = Date.now();
+  setTimeout(() => { 
+    startBtn.click(); 
+  }, 300);
+};
+
+voiceDestBtn.onclick = () => { 
+  ask_destination_via_voice(); 
+};
+
+mapBtn.onclick = () => {
+  drawMap();
+  mapModal.style.display = 'flex';
+};
+
+closeMap.onclick = () => { 
+  mapModal.style.display = 'none'; 
+};
+
+/* ======= OpenCV initialization ======= */
+function onOpenCvReady() {
+  cvReady = true;
+  log("✅ OpenCV.js loaded and ready.");
+  overlayText.textContent = "OpenCV loaded - Enhanced color detection enabled";
+}
+
+if (typeof cv !== 'undefined') {
+  if (cv && cv.Mat) { 
+    onOpenCvReady(); 
+  } else { 
+    cv['onRuntimeInitialized'] = () => { onOpenCvReady(); }; 
+  }
+} else {
+  setTimeout(() => {
+    if (!cvReady) {
+      log("⚠️ OpenCV timeout - using fallback color detection.");
+      overlayText.textContent = "Using basic color detection (OpenCV not loaded)";
+    }
+  }, 8000);
+}
+
+/* ======= Cleanup ======= */
+window.addEventListener('beforeunload', () => {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  speechSynthesis.cancel();
+});
+
+/* ======= Initialization ======= */
+overlayText.textContent = "Ready. Click 'Start Scan' to begin scanning for 3 color QR codes.";
+log("🚀 Indoor Navigation App initialized.");
+log(`📱 Speech Recognition available: ${SR_AVAILABLE}`);
+log("📋 Scan sequence: Red (location) + Green (map) + Blue (accessibility) = Navigation ready");
+
+</script>
 </body>
 </html>
